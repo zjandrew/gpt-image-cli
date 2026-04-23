@@ -68,6 +68,28 @@ export async function runEdit(
     opts.prompt === "-" ? fs.readFileSync(0, "utf8").trim() : opts.prompt;
   if (!prompt) throw new CliError("INVALID_INPUT", "prompt from stdin was empty");
 
+  if (global.dryRun) {
+    const dryRequest: Record<string, unknown> = {
+      model: "gpt-image-2",
+      prompt,
+      image: `<${opts.images.length} file(s)>`,
+      n: opts.count,
+      size: opts.size,
+      quality: opts.quality,
+      background: opts.background,
+      output_format: opts.outputFormat,
+      input_fidelity: opts.inputFidelity,
+    };
+    if (opts.mask) dryRequest.mask = "<file>";
+    if (opts.compression !== undefined) dryRequest.output_compression = opts.compression;
+    if (opts.moderation) dryRequest.moderation = opts.moderation;
+    emit(
+      { ok: true, data: { operation: "edit", request: dryRequest } },
+      emitOpts,
+    );
+    return;
+  }
+
   const imageFiles = await Promise.all(
     opts.images.map(async (p) => {
       const r = await resolveImageInput(p);
@@ -95,24 +117,6 @@ export async function runEdit(
   if (maskFile) request.mask = maskFile;
   if (opts.compression !== undefined) request.output_compression = opts.compression;
   if (opts.moderation) request.moderation = opts.moderation;
-
-  if (global.dryRun) {
-    emit(
-      {
-        ok: true,
-        data: {
-          operation: "edit",
-          request: {
-            ...request,
-            image: `<${imageFiles.length} file(s)>`,
-            mask: maskFile ? "<file>" : undefined,
-          },
-        },
-      },
-      emitOpts,
-    );
-    return;
-  }
 
   const client = makeClient({ apiKey: global.apiKey, endpoint: global.endpoint });
 

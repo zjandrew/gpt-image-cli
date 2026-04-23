@@ -69,6 +69,41 @@ describe("edit", () => {
     expect(env.data.operation).toBe("edit");
   });
 
+  it("dry-run does not read image files or call API", async () => {
+    const captured: unknown[] = [];
+    await runEdit(
+      {
+        prompt: "add a hat",
+        // intentionally nonexistent file — dry-run should never read it
+        images: ["/tmp/does-not-exist.png"],
+        mask: undefined,
+        inputFidelity: "low",
+        count: 1,
+        size: "auto",
+        quality: "auto",
+        background: "auto",
+        outputFormat: "png",
+        out: path.join(dir, "out.png"),
+        stdoutBase64: false,
+      },
+      {
+        endpoint: undefined,
+        apiKey: undefined,
+        format: "json",
+        jq: undefined,
+        dryRun: true,
+        yes: false,
+        verbose: false,
+      },
+      (env) => captured.push(env),
+    );
+    expect(fs.existsSync(path.join(dir, "out.png"))).toBe(false);
+    const env = captured[0] as { ok: boolean; data: { operation: string; request: { image: string } } };
+    expect(env.ok).toBe(true);
+    expect(env.data.operation).toBe("edit");
+    expect(env.data.request.image).toBe("<1 file(s)>");
+  });
+
   it("rejects when --image missing", async () => {
     await expect(
       runEdit(
