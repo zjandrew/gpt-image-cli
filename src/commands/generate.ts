@@ -1,5 +1,6 @@
 // src/commands/generate.ts
 import * as fs from "node:fs";
+import * as path from "node:path";
 import { Command } from "commander";
 import { makeClient } from "../core/client.js";
 import { resolveOutputPaths } from "../core/naming.js";
@@ -7,7 +8,6 @@ import { CliError, translateOpenAIError } from "../framework/errors.js";
 import type {
   Emitter,
   GlobalOptions,
-  OutputEnvelope,
   ImageOpResultData,
 } from "../framework/types.js";
 
@@ -151,8 +151,8 @@ export async function runGenerate(
 }
 
 function ensureParentDir(p: string): void {
-  const dir = p.substring(0, p.lastIndexOf("/"));
-  if (dir && !fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const dir = path.dirname(p);
+  if (dir && dir !== "." && !fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 export function registerGenerate(
