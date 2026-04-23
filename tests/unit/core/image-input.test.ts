@@ -1,11 +1,39 @@
-import { describe, it, expect } from "vitest";
+// tests/unit/core/image-input.test.ts
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { setupServer } from "msw/node";
+import { http, HttpResponse } from "msw";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveImageInput } from "../../../src/core/image-input.js";
-import { CliError } from "../../../src/framework/errors.js";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const fixture = path.resolve(here, "../../fixtures/tiny.png");
+
+// Tiny 1x1 PNG as raw bytes (same content as fixture), used for URL responses.
+const PNG_BYTES = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+  "base64",
+);
+
+const server = setupServer(
+  http.get("https://img.example.test/ok.png", () =>
+    HttpResponse.arrayBuffer(
+      PNG_BYTES.buffer.slice(
+        PNG_BYTES.byteOffset,
+        PNG_BYTES.byteOffset + PNG_BYTES.byteLength,
+      ) as ArrayBuffer,
+      { headers: { "content-type": "image/png" } },
+    ),
+  ),
+  http.get("https://img.example.test/bad.html", () =>
+    HttpResponse.text("<html/>", {
+      headers: { "content-type": "text/html" },
+    }),
+  ),
+);
+
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+afterAll(() => server.close());
 
 describe("resolveImageInput — local path", () => {
   it("reads the file and returns buffer + mime + filename", async () => {
@@ -22,7 +50,6 @@ describe("resolveImageInput — local path", () => {
   });
 
   it("throws INVALID_INPUT for unsupported MIME", async () => {
-    // .txt file, clearly not an image
     const tmp = path.resolve(here, "../../fixtures/not-an-image.txt");
     const fs = await import("node:fs");
     fs.writeFileSync(tmp, "hello");
@@ -34,18 +61,16 @@ describe("resolveImageInput — local path", () => {
 });
 
 describe("resolveImageInput — URL", () => {
-  it("detects http URL and returns fetch-planned descriptor", async () => {
-    // We don't actually hit the network in unit tests; instead assert that the
-    // function throws in dryRun mode OR short-circuits. For now, verify the
-    // function recognizes the URL format by attempting and catching.
-    // Concretely: we check that a URL input does NOT throw INVALID_INPUT for
-    // "file not found" — it either fetches or throws NETWORK_ERROR.
-    try {
-      await resolveImageInput("https://invalid.example.invalid/x.png");
-      // if it returns, that's ok — we only care it didn't treat it as a missing path
-    } catch (e) {
-      const err = e as CliError;
-      expect(err.code).not.toBe("INVALID_INPUT");
-    }
+  it("fetches http(s) URL and returns buffer + mime + filename", async () => {
+    const res = await resolveImageInput("https://img.example.test/ok.png");
+    expect(res.mime).toBe("image/png");
+    expect(res.filename).toBe("ok.png");
+    expect(res.buffer.length).toBeGreaterThan(0);
+  });
+
+  it("throws INVALID_INPUT when URL returns unsupported MIME", async () => {
+    await expect(
+      resolveImageInput("https://img.example.test/bad.html"),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
   });
 });
