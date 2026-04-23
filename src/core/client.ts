@@ -4,7 +4,7 @@ import { CliError } from "../framework/errors.js";
 import { resolveConfig, type FlagConfigInput } from "./config.js";
 
 export function makeClient(flags: FlagConfigInput): OpenAI {
-  const { config, sources } = resolveConfig(flags);
+  const { config } = resolveConfig(flags);
   if (!config.apiKey) {
     throw new CliError(
       "CONFIG_MISSING",
@@ -15,12 +15,4 @@ export function makeClient(flags: FlagConfigInput): OpenAI {
     apiKey: config.apiKey,
     baseURL: config.endpoint,
   });
-}
-
-export function describeConfigSources(flags: FlagConfigInput): {
-  apiKey: string;
-  endpoint: string;
-} {
-  const { sources } = resolveConfig(flags);
-  return sources;
 }

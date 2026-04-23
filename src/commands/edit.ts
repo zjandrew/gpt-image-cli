@@ -1,11 +1,10 @@
 // src/commands/edit.ts
 import * as fs from "node:fs";
-import * as path from "node:path";
 import { Command } from "commander";
 import { toFile } from "openai";
 import { makeClient } from "../core/client.js";
 import { resolveImageInput } from "../core/image-input.js";
-import { resolveOutputPaths } from "../core/naming.js";
+import { ensureParentDir, resolveOutputPaths } from "../core/naming.js";
 import { CliError, translateOpenAIError } from "../framework/errors.js";
 import type {
   Emitter,
@@ -162,11 +161,6 @@ export async function runEdit(
     usage: (response as unknown as { usage?: ImageOpResultData["usage"] }).usage,
   };
   emit({ ok: true, data }, emitOpts);
-}
-
-function ensureParentDir(p: string): void {
-  const dir = path.dirname(p);
-  if (dir && dir !== "." && !fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 export function registerEdit(

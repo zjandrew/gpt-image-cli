@@ -41,7 +41,9 @@ metadata:
 ### 读结果
 
 stdout 默认是 JSON envelope:`{ ok, data: { paths, size, usage, ... } }`。
-配 `--jq '.data.paths[0]'` 直接拿到第一张路径。
+配 `--jq '.data.paths[0]'` 将结果过滤到路径字段 — 输出仍是 envelope
+形式:`{"ok": true, "data": "/abs/path.png"}`。Shell 里再 `| jq -r .data`
+可拿裸字符串。
 
 ## 选参建议
 

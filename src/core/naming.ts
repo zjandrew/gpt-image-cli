@@ -69,3 +69,8 @@ function isExistingDir(p: string): boolean {
     return false;
   }
 }
+
+export function ensureParentDir(p: string): void {
+  const dir = path.dirname(p);
+  if (dir && dir !== "." && !fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+}
