@@ -28,9 +28,13 @@ afterAll(() => server.close());
 
 describe("generate", () => {
   let dir: string;
+  let tmpHome: string;
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "gen-test-"));
+    tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "gen-home-"));
+    process.env.HOME = tmpHome;
     process.env.OPENAI_API_KEY = "sk-test";
+    delete process.env.OPENAI_BASE_URL;
   });
 
   it("single image is written and envelope emitted", async () => {

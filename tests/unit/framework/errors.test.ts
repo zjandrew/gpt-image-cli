@@ -54,4 +54,29 @@ describe("translateOpenAIError", () => {
     const cli = translateOpenAIError(netErr);
     expect(cli.code).toBe("NETWORK_ERROR");
   });
+
+  it("unwraps network code from err.cause", () => {
+    const inner: any = new Error("socket hang up");
+    inner.code = "ECONNRESET";
+    const outer: any = new Error("Connection error.");
+    outer.cause = inner;
+    const cli = translateOpenAIError(outer);
+    expect(cli.code).toBe("NETWORK_ERROR");
+    expect(cli.details).toMatchObject({ code: "ECONNRESET" });
+  });
+
+  it("recognizes OpenAI APIConnectionError by name", () => {
+    const err: any = new Error("Connection error.");
+    err.name = "APIConnectionError";
+    const cli = translateOpenAIError(err);
+    expect(cli.code).toBe("NETWORK_ERROR");
+    expect(cli.details).toMatchObject({ name: "APIConnectionError" });
+  });
+
+  it("recognizes APIConnectionTimeoutError by name", () => {
+    const err: any = new Error("Request timed out.");
+    err.name = "APIConnectionTimeoutError";
+    const cli = translateOpenAIError(err);
+    expect(cli.code).toBe("NETWORK_ERROR");
+  });
 });

@@ -28,9 +28,13 @@ afterAll(() => server.close());
 
 describe("edit", () => {
   let dir: string;
+  let tmpHome: string;
   beforeEach(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "edit-test-"));
+    tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "edit-home-"));
+    process.env.HOME = tmpHome;
     process.env.OPENAI_API_KEY = "sk-test";
+    delete process.env.OPENAI_BASE_URL;
     // copy fixture to dir
     const here = fileURLToPath(new URL(".", import.meta.url));
     const src = path.resolve(here, "../fixtures/tiny.png");
