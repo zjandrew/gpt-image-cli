@@ -6,7 +6,7 @@ CLI for OpenAI `gpt-image-2` — text-to-image and image editing — with an acc
 
 ```bash
 # CLI (global):
-npm install -g @zhandrew/gpt-image-cli
+npm install -g @zhoujinandrew/gpt-image-cli
 
 # Companion SKILL for Claude Code:
 npx skills add zjandrew/gpt-image-cli -g -y

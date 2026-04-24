@@ -15,7 +15,7 @@ metadata:
 ## 前置
 
 1. 确认 `gpt-image-cli` 可执行(`which gpt-image-cli` 或 `gpt-image-cli --version`)。
-   不可执行则提示用户 `npm install -g @zhandrew/gpt-image-cli` 或在仓库中 `npm link`。
+   不可执行则提示用户 `npm install -g @zhoujinandrew/gpt-image-cli` 或在仓库中 `npm link`。
 2. 配置 API key:优先 env `OPENAI_API_KEY`;若缺失,引导
    `gpt-image-cli config init`(交互式,需 TTY)或 `config set api_key <value>`。
 3. 自建/代理 endpoint:`gpt-image-cli config set endpoint https://<...>/v1`
