@@ -1,21 +1,39 @@
 {
   "name": "@zhoujinandrew/gpt-image-cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "CLI for OpenAI gpt-image-2 generation and editing, with a companion Claude Code SKILL",
   "type": "module",
-  "bin": { "gpt-image-cli": "./bin/gpt-image-cli.js" },
+  "bin": {
+    "gpt-image-cli": "bin/gpt-image-cli.js"
+  },
   "main": "dist/index.js",
-  "files": ["bin/", "dist/", "skills/", "README.md"],
-  "keywords": ["openai", "gpt-image-2", "image-generation", "cli", "claude-code", "skill"],
+  "files": [
+    "bin/",
+    "dist/",
+    "skills/",
+    "README.md"
+  ],
+  "keywords": [
+    "openai",
+    "gpt-image-2",
+    "image-generation",
+    "cli",
+    "claude-code",
+    "skill"
+  ],
   "author": "zjandrew",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/zjandrew/gpt-image-cli.git"
   },
-  "bugs": { "url": "https://github.com/zjandrew/gpt-image-cli/issues" },
+  "bugs": {
+    "url": "https://github.com/zjandrew/gpt-image-cli/issues"
+  },
   "homepage": "https://github.com/zjandrew/gpt-image-cli#readme",
-  "publishConfig": { "access": "public" },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsup src/index.ts --format esm --outDir dist --clean",
@@ -24,7 +42,9 @@
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run lint && npm run test && npm run build"
   },
-  "engines": { "node": ">=18.0.0" },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "cli-table3": "^0.6.5",
     "commander": "^12.1.0",
