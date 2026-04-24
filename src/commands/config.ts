@@ -106,16 +106,52 @@ export function registerConfig(program: Command, emit: Emitter): void {
 }
 
 function prompt(question: string, opts: { mask?: boolean } = {}): Promise<string> {
+  if (opts.mask) return promptMasked(question);
   return new Promise((resolve) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    if (opts.mask) {
-      // Simple masking: we don't echo; readline will still capture input
-      (rl as unknown as { _writeToOutput: (s: string) => void })._writeToOutput = () => {};
-    }
     rl.question(question, (ans) => {
       rl.close();
-      if (opts.mask) process.stdout.write("\n");
       resolve(ans.trim());
     });
+  });
+}
+
+function promptMasked(question: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    process.stdout.write(question);
+    if (!process.stdin.setRawMode) {
+      reject(new Error("stdin does not support setRawMode; cannot mask input"));
+      return;
+    }
+    process.stdin.resume();
+    process.stdin.setRawMode(true);
+    let buf = "";
+    const onData = (data: Buffer) => {
+      const s = data.toString("utf8");
+      for (const ch of s) {
+        const code = ch.charCodeAt(0);
+        if (code === 0x0d || code === 0x0a) {
+          process.stdin.setRawMode!(false);
+          process.stdin.pause();
+          process.stdin.off("data", onData);
+          process.stdout.write("\n");
+          resolve(buf.trim());
+          return;
+        } else if (code === 0x7f || code === 0x08) {
+          if (buf.length > 0) {
+            buf = buf.slice(0, -1);
+            process.stdout.write("\b \b");
+          }
+        } else if (code === 0x03) {
+          process.stdin.setRawMode!(false);
+          process.stdout.write("\n");
+          process.exit(130);
+        } else if (code >= 0x20) {
+          buf += ch;
+          process.stdout.write("*");
+        }
+      }
+    };
+    process.stdin.on("data", onData);
   });
 }
