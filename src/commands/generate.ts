@@ -24,11 +24,60 @@ export interface GenerateOptions {
   stdoutBase64: boolean;
 }
 
-const SIZE_VALUES = new Set(["1024x1024", "1024x1536", "1536x1024", "auto"]);
 const QUALITY_VALUES = new Set(["low", "medium", "high", "auto"]);
 const BG_VALUES = new Set(["transparent", "opaque", "auto"]);
 const FMT_VALUES = new Set(["png", "jpeg", "webp"]);
 const MOD_VALUES = new Set(["auto", "low"]);
+
+const SIZE_MIN_PIXELS = 655_360;
+const SIZE_MAX_PIXELS = 8_294_400;
+const SIZE_MAX_SIDE = 3840;
+const SIZE_MIN_SIDE = 256;
+
+function validateSize(size: string): void {
+  if (size === "auto") return;
+  const m = /^(\d+)x(\d+)$/.exec(size);
+  if (!m) {
+    throw new CliError(
+      "INVALID_INPUT",
+      `size must be "auto" or <width>x<height>, got: ${size}`,
+    );
+  }
+  const w = parseInt(m[1]!, 10);
+  const h = parseInt(m[2]!, 10);
+  if (w % 16 !== 0 || h % 16 !== 0) {
+    throw new CliError(
+      "INVALID_INPUT",
+      `size dimensions must be multiples of 16, got: ${size}`,
+    );
+  }
+  if (w < SIZE_MIN_SIDE || h < SIZE_MIN_SIDE) {
+    throw new CliError(
+      "INVALID_INPUT",
+      `size dimensions must be at least ${SIZE_MIN_SIDE}px, got: ${size}`,
+    );
+  }
+  if (w > SIZE_MAX_SIDE || h > SIZE_MAX_SIDE) {
+    throw new CliError(
+      "INVALID_INPUT",
+      `size dimensions must be at most ${SIZE_MAX_SIDE}px, got: ${size}`,
+    );
+  }
+  const pixels = w * h;
+  if (pixels < SIZE_MIN_PIXELS || pixels > SIZE_MAX_PIXELS) {
+    throw new CliError(
+      "INVALID_INPUT",
+      `total pixels must be ${SIZE_MIN_PIXELS}-${SIZE_MAX_PIXELS}, got: ${pixels}`,
+    );
+  }
+  const ratio = Math.max(w, h) / Math.min(w, h);
+  if (ratio > 3) {
+    throw new CliError(
+      "INVALID_INPUT",
+      `aspect ratio must be between 3:1 and 1:3, got: ${size} (ratio ${ratio.toFixed(2)})`,
+    );
+  }
+}
 
 export function validateGenerateOptions(opts: GenerateOptions): void {
   if (!opts.prompt || opts.prompt.trim() === "") {
@@ -37,9 +86,7 @@ export function validateGenerateOptions(opts: GenerateOptions): void {
   if (!Number.isInteger(opts.count) || opts.count < 1 || opts.count > 10) {
     throw new CliError("INVALID_INPUT", "count must be an integer in [1,10]");
   }
-  if (!SIZE_VALUES.has(opts.size)) {
-    throw new CliError("INVALID_INPUT", `size must be one of: ${[...SIZE_VALUES].join(", ")}`);
-  }
+  validateSize(opts.size);
   if (!QUALITY_VALUES.has(opts.quality)) {
     throw new CliError("INVALID_INPUT", `quality must be one of: ${[...QUALITY_VALUES].join(", ")}`);
   }
