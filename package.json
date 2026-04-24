@@ -1,11 +1,21 @@
 {
-  "name": "gpt-image-cli",
+  "name": "@zhandrew/gpt-image-cli",
   "version": "1.0.0",
-  "description": "CLI for OpenAI gpt-image-2 generation and editing",
+  "description": "CLI for OpenAI gpt-image-2 generation and editing, with a companion Claude Code SKILL",
   "type": "module",
   "bin": { "gpt-image-cli": "./bin/gpt-image-cli.js" },
   "main": "dist/index.js",
   "files": ["bin/", "dist/", "skills/", "README.md"],
+  "keywords": ["openai", "gpt-image-2", "image-generation", "cli", "claude-code", "skill"],
+  "author": "zjandrew",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zjandrew/gpt-image-cli.git"
+  },
+  "bugs": { "url": "https://github.com/zjandrew/gpt-image-cli/issues" },
+  "homepage": "https://github.com/zjandrew/gpt-image-cli#readme",
+  "publishConfig": { "access": "public" },
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsup src/index.ts --format esm --outDir dist --clean",

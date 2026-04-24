@@ -5,11 +5,18 @@ CLI for OpenAI `gpt-image-2` — text-to-image and image editing — with an acc
 ## Install
 
 ```bash
-# Once published:
-npm i -g gpt-image-cli
+# CLI (global):
+npm install -g @zhandrew/gpt-image-cli
 
-# Local development:
-git clone <repo> && cd gpt-image-cli
+# Companion SKILL for Claude Code:
+npx skills add zjandrew/gpt-image-cli -g -y
+```
+
+Local development:
+
+```bash
+git clone https://github.com/zjandrew/gpt-image-cli.git
+cd gpt-image-cli
 npm install
 npm run build
 npm link
@@ -65,7 +72,7 @@ gpt-image-cli generate -p "..." --dry-run
 The skill lives at `skills/gpt-image/SKILL.md`. Install to your Claude Code skills:
 
 ```bash
-npx skills add <this-repo> -g -y
+npx skills add zjandrew/gpt-image-cli -g -y
 ```
 
 ## Exit codes
