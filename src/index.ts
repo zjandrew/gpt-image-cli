@@ -12,7 +12,7 @@ import { registerGenerate } from "./commands/generate.js";
 import { registerEdit } from "./commands/edit.js";
 import { registerConfig } from "./commands/config.js";
 
-const VERSION = "1.0.2";
+const VERSION = "1.0.3";
 
 function makeEmitter(program: Command): Emitter {
   return (env: OutputEnvelope, opts?: EmitOptions) => {

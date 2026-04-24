@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { Command } from "commander";
 import { makeClient } from "../core/client.js";
+import { itemToBuffer, looksLikeHtml, truncate } from "../core/image-response.js";
 import { ensureParentDir, resolveOutputPaths } from "../core/naming.js";
 import { CliError, translateOpenAIError } from "../framework/errors.js";
 import type {
@@ -158,9 +159,24 @@ export async function runGenerate(
     throw translateOpenAIError(err);
   }
 
-  const items = (response.data ?? []) as Array<{ b64_json?: string }>;
+  if (global.verbose) {
+    const preview = truncate(JSON.stringify(response), 800);
+    process.stderr.write(`[verbose] response: ${preview}\n`);
+  }
+
+  const items = (response.data ?? []) as Array<{ b64_json?: string; url?: string }>;
   if (items.length === 0) {
-    throw new CliError("OPENAI_API_ERROR", "response contained no images");
+    if (looksLikeHtml(response)) {
+      throw new CliError(
+        "OPENAI_API_ERROR",
+        "endpoint returned HTML instead of JSON — check that --endpoint includes the API path (e.g. `https://your-proxy/v1`, not `https://your-proxy`)",
+        { response_preview: truncate(JSON.stringify(response), 400) },
+      );
+    }
+    throw new CliError("OPENAI_API_ERROR", "response contained no images", {
+      response_keys: Object.keys(response ?? {}),
+      response_preview: truncate(JSON.stringify(response), 500),
+    });
   }
 
   const paths = resolveOutputPaths({
@@ -171,17 +187,17 @@ export async function runGenerate(
   });
 
   for (let i = 0; i < items.length; i++) {
-    const b64 = items[i]!.b64_json;
-    if (!b64) throw new CliError("OPENAI_API_ERROR", `item ${i} has no b64_json`);
+    const item = items[i]!;
+    const buf = await itemToBuffer(item, i);
     const outPath = paths[i]!;
     ensureParentDir(outPath);
     try {
-      fs.writeFileSync(outPath, Buffer.from(b64, "base64"));
+      fs.writeFileSync(outPath, buf);
     } catch (err) {
       const e = err as { message?: string };
       throw new CliError("IO_ERROR", `failed to write ${outPath}: ${e.message}`);
     }
-    if (opts.stdoutBase64) process.stdout.write(b64 + "\n");
+    if (opts.stdoutBase64) process.stdout.write(buf.toString("base64") + "\n");
   }
 
   const data: ImageOpResultData = {
