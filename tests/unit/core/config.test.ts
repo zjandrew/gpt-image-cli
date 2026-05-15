@@ -11,6 +11,7 @@ import {
   getProfile,
   listProfiles,
   setProfileField,
+  resolveActiveProfile,
 } from "../../../src/core/config.js";
 import { CliError } from "../../../src/framework/errors.js";
 
@@ -189,5 +190,95 @@ describe("profile CRUD", () => {
     expect(() =>
       addProfile("a/b", { type: "openai", api_key: "k" }),
     ).toThrow(/'\/'/);
+  });
+});
+
+describe("resolveActiveProfile precedence", () => {
+  let tmpHome: string;
+  const origEnv = { ...process.env };
+
+  beforeEach(() => {
+    tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "gpt-image-cli-rap-"));
+    process.env.HOME = tmpHome;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_BASE_URL;
+    delete process.env.GPT_IMAGE_PROFILE;
+  });
+
+  afterEach(() => {
+    process.env = { ...origEnv };
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+  });
+
+  it("CONFIG_MISSING when no file, no env, no flags", () => {
+    expect(() => resolveActiveProfile({})).toThrow(/CONFIG_MISSING|not set/i);
+  });
+
+  it("synthesizes ad-hoc openai profile from OPENAI_API_KEY env when no file", () => {
+    process.env.OPENAI_API_KEY = "sk-env";
+    const { profile } = resolveActiveProfile({});
+    expect(profile.type).toBe("openai");
+    expect(profile.apiKey).toBe("sk-env");
+    expect(profile.endpoint).toBe("https://api.openai.com/v1");
+    expect(profile.name).toBe("(env)");
+  });
+
+  it("uses file's active profile when no flag/env", () => {
+    addProfile("a", { type: "openai", api_key: "sk-a", endpoint: "https://a/v1" });
+    addProfile("b", { type: "openai", api_key: "sk-b" });
+    useProfile("a");
+    const { profile } = resolveActiveProfile({});
+    expect(profile.name).toBe("a");
+    expect(profile.apiKey).toBe("sk-a");
+  });
+
+  it("--profile flag beats file active and GPT_IMAGE_PROFILE env", () => {
+    addProfile("a", { type: "openai", api_key: "sk-a" });
+    addProfile("b", { type: "openai", api_key: "sk-b" });
+    useProfile("a");
+    process.env.GPT_IMAGE_PROFILE = "a";
+    const { profile } = resolveActiveProfile({ profile: "b" });
+    expect(profile.name).toBe("b");
+  });
+
+  it("GPT_IMAGE_PROFILE env beats file active", () => {
+    addProfile("a", { type: "openai", api_key: "sk-a" });
+    addProfile("b", { type: "openai", api_key: "sk-b" });
+    useProfile("a");
+    process.env.GPT_IMAGE_PROFILE = "b";
+    const { profile } = resolveActiveProfile({});
+    expect(profile.name).toBe("b");
+  });
+
+  it("--endpoint / --api-key override resolved profile fields without changing type", () => {
+    addProfile("az", {
+      type: "azure",
+      endpoint: "https://orig.openai.azure.com",
+      api_key: "k-orig",
+      api_version: "2024-02-01",
+      deployment: "gpt-image-2",
+      auth_style: "bearer",
+    });
+    useProfile("az");
+    const { profile } = resolveActiveProfile({
+      apiKey: "k-flag",
+      endpoint: "https://override.openai.azure.com",
+    });
+    expect(profile.type).toBe("azure");
+    expect(profile.apiKey).toBe("k-flag");
+    expect(profile.endpoint).toBe("https://override.openai.azure.com");
+    expect(profile.deployment).toBe("gpt-image-2");
+    expect(profile.authStyle).toBe("bearer");
+  });
+
+  it("PROFILE_NOT_FOUND when --profile names a missing profile", () => {
+    addProfile("a", { type: "openai", api_key: "sk-a" });
+    try {
+      resolveActiveProfile({ profile: "missing" });
+      expect.fail("should have thrown");
+    } catch (e) {
+      expect((e as CliError).code).toBe("PROFILE_NOT_FOUND");
+      expect((e as CliError).details).toMatchObject({ available: ["a"] });
+    }
   });
 });

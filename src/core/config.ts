@@ -11,16 +11,10 @@ import { CliError } from "../framework/errors.js";
 
 export const DEFAULT_OPENAI_ENDPOINT = "https://api.openai.com/v1";
 
-/** @deprecated v1 shape — replaced by ConfigFileV2. Re-exported for backward compat; removed in Task 4. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ConfigFile = any;
-
 export interface ConfigFileV2 {
   version: 2;
   active: string | null;
   profiles: Record<string, Profile>;
-  /** index signature — allows legacy callers to cast to Record<string, unknown>; removed in Task 4 */
-  [key: string]: unknown;
 }
 
 export interface FlagConfigInput {
@@ -138,25 +132,88 @@ export function redactApiKey(k: string | undefined): string {
   return `***${k.slice(-4)}`;
 }
 
-// ---- placeholders to be filled by later tasks ----
 export function resolveActiveProfile(
-  _flags: FlagConfigInput,
+  flags: FlagConfigInput,
 ): { profile: ResolvedProfile; sources: { apiKey: ConfigSource; endpoint: ConfigSource } } {
-  throw new Error("not implemented — Task 4");
+  const file = readConfigFile();
+
+  // Step 1: pick which named profile is in scope.
+  const wantedName =
+    flags.profile ?? process.env.GPT_IMAGE_PROFILE ?? file.active ?? null;
+
+  let base: ResolvedProfile | null = null;
+  let nameSource: ConfigSource = "missing";
+
+  if (wantedName) {
+    const stored = file.profiles[wantedName];
+    if (!stored) {
+      throw new CliError(
+        "PROFILE_NOT_FOUND",
+        `no such profile: ${wantedName}`,
+        { available: Object.keys(file.profiles).sort((a, b) => a.localeCompare(b)) },
+      );
+    }
+    base = storedToResolved(wantedName, stored);
+    nameSource = flags.profile ? "flag" : process.env.GPT_IMAGE_PROFILE ? "env" : "file";
+  } else if (process.env.OPENAI_API_KEY || flags.apiKey) {
+    // Ad-hoc openai profile from env/flag (no saved profiles).
+    base = {
+      name: "(env)",
+      type: "openai",
+      apiKey: flags.apiKey ?? process.env.OPENAI_API_KEY!,
+      endpoint:
+        flags.endpoint ?? process.env.OPENAI_BASE_URL ?? DEFAULT_OPENAI_ENDPOINT,
+    };
+    nameSource = flags.apiKey ? "flag" : "env";
+  }
+
+  if (!base) {
+    throw new CliError(
+      "CONFIG_MISSING",
+      "OpenAI API key not set. Set OPENAI_API_KEY or run `gpt-image-cli config init`.",
+    );
+  }
+
+  // Step 2: layer flag/env overrides over the resolved profile fields.
+  const apiKeySrc: ConfigSource = flags.apiKey
+    ? "flag"
+    : process.env.OPENAI_API_KEY && nameSource === "env"
+    ? "env"
+    : nameSource;
+  const endpointSrc: ConfigSource = flags.endpoint
+    ? "flag"
+    : process.env.OPENAI_BASE_URL
+    ? "env"
+    : nameSource === "missing"
+    ? "default"
+    : nameSource;
+
+  const apiKey = flags.apiKey ?? base.apiKey;
+  const endpoint = flags.endpoint ?? base.endpoint;
+
+  return {
+    profile: { ...base, apiKey, endpoint },
+    sources: { apiKey: apiKeySrc, endpoint: endpointSrc },
+  };
 }
 
-// TEMP shim — removed in Task 4. Keeps existing callers compiling.
-export function resolveConfig(flags: FlagConfigInput) {
-  const file = readConfigFile();
-  const active = file.active ? file.profiles[file.active] : undefined;
-  const apiKey = flags.apiKey ?? process.env.OPENAI_API_KEY ?? active?.api_key;
-  const endpoint = flags.endpoint ?? process.env.OPENAI_BASE_URL ?? active?.endpoint ?? DEFAULT_OPENAI_ENDPOINT;
+function storedToResolved(name: string, p: Profile): ResolvedProfile {
+  if (p.type === "openai") {
+    return {
+      name,
+      type: "openai",
+      apiKey: p.api_key,
+      endpoint: p.endpoint ?? DEFAULT_OPENAI_ENDPOINT,
+    };
+  }
   return {
-    config: { ...(apiKey ? { apiKey } : {}), endpoint },
-    sources: {
-      apiKey: (flags.apiKey ? "flag" : process.env.OPENAI_API_KEY ? "env" : active?.api_key ? "file" : "missing") as ConfigSource,
-      endpoint: (flags.endpoint ? "flag" : process.env.OPENAI_BASE_URL ? "env" : active?.endpoint ? "file" : "default") as ConfigSource,
-    },
+    name,
+    type: "azure",
+    apiKey: p.api_key,
+    endpoint: p.endpoint,
+    apiVersion: p.api_version,
+    deployment: p.deployment,
+    authStyle: p.auth_style ?? "api-key",
   };
 }
 
