@@ -1,5 +1,5 @@
 // tests/integration/generate.test.ts
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import * as fs from "node:fs";
@@ -271,5 +271,63 @@ describe("generate", () => {
       code: "INVALID_INPUT",
       message: expect.stringMatching(/webp.*azure/i),
     });
+  });
+
+  it("--verbose prints constructed Azure URL before the call (dry-run)", async () => {
+    const cfgDir = path.join(tmpHome, ".gpt-image-cli");
+    fs.mkdirSync(cfgDir, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(
+      path.join(cfgDir, "config.json"),
+      JSON.stringify({
+        version: 2,
+        active: "az",
+        profiles: {
+          az: {
+            type: "azure",
+            endpoint: "https://r.openai.azure.com",
+            api_key: "k",
+            api_version: "2024-02-01",
+            deployment: "gpt-image-2",
+            auth_style: "bearer",
+          },
+        },
+      }),
+      { mode: 0o600 },
+    );
+    delete process.env.OPENAI_API_KEY;
+    const writes: string[] = [];
+    const spy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation((chunk) => {
+        writes.push(String(chunk));
+        return true;
+      });
+    await runGenerate(
+      {
+        prompt: "x",
+        count: 1,
+        size: "auto",
+        quality: "auto",
+        background: "auto",
+        outputFormat: "png",
+        stdoutBase64: false,
+      },
+      {
+        endpoint: undefined,
+        apiKey: undefined,
+        format: "json",
+        jq: undefined,
+        dryRun: true,
+        yes: false,
+        verbose: true,
+      },
+      () => {},
+    );
+    spy.mockRestore();
+    const all = writes.join("");
+    expect(all).toContain(
+      "POST https://r.openai.azure.com/openai/deployments/gpt-image-2/images/generations?api-version=2024-02-01",
+    );
+    expect(all).toContain("auth: Bearer ***");
   });
 });

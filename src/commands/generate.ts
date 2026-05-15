@@ -179,6 +179,20 @@ export async function runGenerate(
     ...(profileForDescribe.authStyle ? { auth_style: profileForDescribe.authStyle } : {}),
   };
 
+  if (global.verbose && profileForDescribe.type === "azure") {
+    const url =
+      `${profileForDescribe.endpoint.replace(/\/$/, "")}` +
+      `/openai/deployments/${profileForDescribe.deployment}` +
+      `/images/generations?api-version=${profileForDescribe.apiVersion}`;
+    process.stderr.write(`[verbose] POST ${url}\n`);
+    const authLabel = profileForDescribe.authStyle === "bearer" ? "Bearer ***" : "api-key ***";
+    process.stderr.write(`[verbose] auth: ${authLabel}\n`);
+  } else if (global.verbose && profileForDescribe.type === "openai") {
+    process.stderr.write(
+      `[verbose] POST ${profileForDescribe.endpoint.replace(/\/$/, "")}/images/generations\n`,
+    );
+  }
+
   if (global.dryRun) {
     emit(
       { ok: true, data: { operation: "generate", profile: profileBlock, request } },

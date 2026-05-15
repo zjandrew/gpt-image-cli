@@ -108,6 +108,20 @@ export async function runEdit(
     ...(profileForDescribe.authStyle ? { auth_style: profileForDescribe.authStyle } : {}),
   };
 
+  if (global.verbose && profileForDescribe.type === "azure") {
+    const url =
+      `${profileForDescribe.endpoint.replace(/\/$/, "")}` +
+      `/openai/deployments/${profileForDescribe.deployment}` +
+      `/images/edits?api-version=${profileForDescribe.apiVersion}`;
+    process.stderr.write(`[verbose] POST ${url}\n`);
+    const authLabel = profileForDescribe.authStyle === "bearer" ? "Bearer ***" : "api-key ***";
+    process.stderr.write(`[verbose] auth: ${authLabel}\n`);
+  } else if (global.verbose && profileForDescribe.type === "openai") {
+    process.stderr.write(
+      `[verbose] POST ${profileForDescribe.endpoint.replace(/\/$/, "")}/images/edits\n`,
+    );
+  }
+
   if (global.dryRun) {
     const dryRequest: Record<string, unknown> = {
       model: modelForRequest,
