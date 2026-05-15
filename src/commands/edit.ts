@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import { Command } from "commander";
 import { toFile } from "openai";
 import { makeClient } from "../core/client.js";
+import { resolveActiveProfile } from "../core/config.js";
 import { itemToBuffer, looksLikeHtml, truncate } from "../core/image-response.js";
 import { resolveImageInput } from "../core/image-input.js";
 import { ensureParentDir, resolveOutputPaths } from "../core/naming.js";
@@ -68,9 +69,41 @@ export async function runEdit(
     opts.prompt === "-" ? fs.readFileSync(0, "utf8").trim() : opts.prompt;
   if (!prompt) throw new CliError("INVALID_INPUT", "prompt from stdin was empty");
 
+  // Resolve profile up-front so dry-run can describe it and the request can
+  // use the right `model`. For non-dry-run we also instantiate the client.
+  const bundle = global.dryRun
+    ? null
+    : makeClient({
+        apiKey: global.apiKey,
+        endpoint: global.endpoint,
+        profile: global.profile,
+      });
+
+  const profileForDescribe =
+    bundle?.profile ??
+    resolveActiveProfile({
+      apiKey: global.apiKey,
+      endpoint: global.endpoint,
+      profile: global.profile,
+    }).profile;
+
+  const modelForRequest =
+    bundle?.model ??
+    (profileForDescribe.type === "azure"
+      ? profileForDescribe.deployment!
+      : "gpt-image-2");
+
+  const profileBlock = {
+    name: profileForDescribe.name,
+    type: profileForDescribe.type,
+    endpoint: profileForDescribe.endpoint,
+    ...(profileForDescribe.deployment ? { deployment: profileForDescribe.deployment } : {}),
+    ...(profileForDescribe.authStyle ? { auth_style: profileForDescribe.authStyle } : {}),
+  };
+
   if (global.dryRun) {
     const dryRequest: Record<string, unknown> = {
-      model: "gpt-image-2",
+      model: modelForRequest,
       prompt,
       image: `<${opts.images.length} file(s)>`,
       n: opts.count,
@@ -84,7 +117,7 @@ export async function runEdit(
     if (opts.compression !== undefined) dryRequest.output_compression = opts.compression;
     if (opts.moderation) dryRequest.moderation = opts.moderation;
     emit(
-      { ok: true, data: { operation: "edit", request: dryRequest } },
+      { ok: true, data: { operation: "edit", profile: profileBlock, request: dryRequest } },
       emitOpts,
     );
     return;
@@ -104,7 +137,7 @@ export async function runEdit(
     : undefined;
 
   const request: Record<string, unknown> = {
-    model: "gpt-image-2",
+    model: modelForRequest,
     prompt,
     image: imageFiles.length === 1 ? imageFiles[0]! : imageFiles,
     n: opts.count,
@@ -118,7 +151,7 @@ export async function runEdit(
   if (opts.compression !== undefined) request.output_compression = opts.compression;
   if (opts.moderation) request.moderation = opts.moderation;
 
-  const { client } = makeClient({ apiKey: global.apiKey, endpoint: global.endpoint });
+  const { client } = bundle!;
 
   let response;
   try {
@@ -169,13 +202,14 @@ export async function runEdit(
   }
 
   const data: ImageOpResultData = {
-    model: "gpt-image-2",
+    model: modelForRequest,
     operation: "edit",
     paths,
     size: opts.size,
     quality: opts.quality,
     output_format: opts.outputFormat,
     count: items.length,
+    profile: profileBlock,
     usage: (response as unknown as { usage?: ImageOpResultData["usage"] }).usage,
   };
   emit({ ok: true, data }, emitOpts);

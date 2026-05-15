@@ -150,4 +150,33 @@ describe("generate", () => {
       ),
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
   });
+
+  it("dry-run includes profile block describing the active endpoint", async () => {
+    const captured: unknown[] = [];
+    await runGenerate(
+      {
+        prompt: "a cat",
+        count: 1,
+        size: "auto",
+        quality: "auto",
+        background: "auto",
+        outputFormat: "png",
+        stdoutBase64: false,
+      },
+      {
+        endpoint: undefined,
+        apiKey: undefined,
+        format: "json",
+        jq: undefined,
+        dryRun: true,
+        yes: false,
+        verbose: false,
+      },
+      (env) => captured.push(env),
+    );
+    const env = captured[0] as { ok: boolean; data: { profile: { type: string; name: string } } };
+    expect(env.ok).toBe(true);
+    expect(env.data.profile.type).toBe("openai");
+    expect(env.data.profile.name).toBe("(env)");
+  });
 });

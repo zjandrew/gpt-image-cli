@@ -3,6 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { Command } from "commander";
 import { makeClient } from "../core/client.js";
+import { resolveActiveProfile } from "../core/config.js";
 import { itemToBuffer, looksLikeHtml, truncate } from "../core/image-response.js";
 import { ensureParentDir, resolveOutputPaths } from "../core/naming.js";
 import { CliError, translateOpenAIError } from "../framework/errors.js";
@@ -127,8 +128,32 @@ export async function runGenerate(
       : opts.prompt;
   if (!prompt) throw new CliError("INVALID_INPUT", "prompt from stdin was empty");
 
+  // Resolve profile up-front so dry-run can describe it and the request can
+  // use the right `model`. For non-dry-run we also instantiate the client.
+  const bundle = global.dryRun
+    ? null
+    : makeClient({
+        apiKey: global.apiKey,
+        endpoint: global.endpoint,
+        profile: global.profile,
+      });
+
+  const profileForDescribe =
+    bundle?.profile ??
+    resolveActiveProfile({
+      apiKey: global.apiKey,
+      endpoint: global.endpoint,
+      profile: global.profile,
+    }).profile;
+
+  const modelForRequest =
+    bundle?.model ??
+    (profileForDescribe.type === "azure"
+      ? profileForDescribe.deployment!
+      : "gpt-image-2");
+
   const request: Record<string, unknown> = {
-    model: "gpt-image-2",
+    model: modelForRequest,
     prompt,
     n: opts.count,
     size: opts.size,
@@ -139,18 +164,23 @@ export async function runGenerate(
   if (opts.compression !== undefined) request.output_compression = opts.compression;
   if (opts.moderation) request.moderation = opts.moderation;
 
+  const profileBlock = {
+    name: profileForDescribe.name,
+    type: profileForDescribe.type,
+    endpoint: profileForDescribe.endpoint,
+    ...(profileForDescribe.deployment ? { deployment: profileForDescribe.deployment } : {}),
+    ...(profileForDescribe.authStyle ? { auth_style: profileForDescribe.authStyle } : {}),
+  };
+
   if (global.dryRun) {
     emit(
-      {
-        ok: true,
-        data: { operation: "generate", request },
-      },
+      { ok: true, data: { operation: "generate", profile: profileBlock, request } },
       emitOpts,
     );
     return;
   }
 
-  const { client } = makeClient({ apiKey: global.apiKey, endpoint: global.endpoint });
+  const { client } = bundle!;
 
   let response;
   try {
@@ -201,13 +231,14 @@ export async function runGenerate(
   }
 
   const data: ImageOpResultData = {
-    model: "gpt-image-2",
+    model: modelForRequest,
     operation: "generate",
     paths,
     size: opts.size,
     quality: opts.quality,
     output_format: opts.outputFormat,
     count: items.length,
+    profile: profileBlock,
     usage: (response as unknown as { usage?: ImageOpResultData["usage"] }).usage,
   };
   emit({ ok: true, data }, emitOpts);
