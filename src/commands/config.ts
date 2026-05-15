@@ -199,6 +199,18 @@ function registerPath(cfg: Command, emit: Emitter) {
     .action(() => actionPath(emit));
 }
 
+export function actionList(emit: Emitter): void {
+  const profiles = listProfiles();
+  emit({ ok: true, data: { profiles } });
+}
+
+function registerList(cfg: Command, emit: Emitter) {
+  cfg
+    .command("list")
+    .description("List saved profiles; active marker shown")
+    .action(() => actionList(emit));
+}
+
 export function registerConfig(program: Command, emit: Emitter): void {
   const cfg = program.command("config").description("Manage CLI config");
   registerInit(cfg, emit);
@@ -206,7 +218,8 @@ export function registerConfig(program: Command, emit: Emitter): void {
   registerGet(cfg, emit);
   registerShow(cfg, emit);
   registerPath(cfg, emit);
-  // list / use / add / remove are wired up in Tasks 9–12.
+  registerList(cfg, emit);
+  // use / add / remove are wired up in Tasks 10–12.
 }
 
 // Touch this to suppress "unused" warnings if any helpers temporarily look unused.
