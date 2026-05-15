@@ -1,6 +1,6 @@
 ---
 name: gpt-image
-version: 1.2.0
+version: 1.3.0
 description: "当用户需要生成图片、修图、加元素、抠背景、替换场景,或多轮迭代优化图片(生成预览 → 反馈 → 改版)时使用。"
 metadata:
   requires:
@@ -22,7 +22,37 @@ metadata:
 2. 配置 API key:优先 env `OPENAI_API_KEY`;若缺失,引导
    `gpt-image-cli config init`(交互式,需 TTY)或 `config set api_key <value>`。
 3. 自建/代理 endpoint:`gpt-image-cli config set endpoint https://<...>/v1`
-   或 `--endpoint <url>` 单次覆盖。
+   或 `--endpoint <url>` 单次覆盖。Azure 或多端点场景见下节。
+
+## 多端点配置(OpenAI / Azure)
+
+支持同时保存多个 endpoint(公有 OpenAI、自建代理、Azure deployment)并切换。
+
+```bash
+gpt-image-cli config list                     # 查看所有 profile,带 active 标记
+gpt-image-cli config use <name>               # 切换 active profile
+gpt-image-cli config add <name> --type azure  # 向导式新增 Azure profile
+gpt-image-cli config add <name> --type openai # 向导式新增 OpenAI profile
+gpt-image-cli --profile <name> generate ...   # 单次覆盖,不改 active
+gpt-image-cli config show [<name>]            # 查看具体 profile(api_key 已脱敏)
+```
+
+Azure profile 字段:`endpoint`(resource 根 URL,不含 `/openai/deployments/...`
+路径)、`deployment`、`api_version`、`api_key`、`auth_style`(`api-key`
+默认,匹配 Microsoft 文档;或 `bearer` 对应 `Authorization: Bearer <key>`
+风格的网关)。
+
+Azure profile 限制:
+- `output_format=webp` 不受支持,改用 `png` 或 `jpeg`(CLI 会在请求前直接报错)。
+- size / 长宽比规则与 OpenAI 一致(见下文)。
+
+旧版单端点 config(`~/.gpt-image-cli/config.json` 形如 `{api_key, endpoint}`)
+会在首次读取时自动迁移为名为 `default` 的 profile,只在迁移当次打印一行
+`[config] migrated legacy config to v2` 提示,无需用户干预。
+
+环境变量:`OPENAI_API_KEY` / `OPENAI_BASE_URL` 仍可作为"零 profile"
+临时凭据;`GPT_IMAGE_PROFILE` 可不改 active 临时切换到另一个 profile;
+优先级 `--profile flag > GPT_IMAGE_PROFILE env > 文件 active`。
 
 ## 核心命令
 
