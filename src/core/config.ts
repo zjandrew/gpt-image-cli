@@ -51,7 +51,12 @@ function emptyV2(): ConfigFileV2 {
 function isV2(raw: unknown): raw is ConfigFileV2 {
   if (!raw || typeof raw !== "object") return false;
   const r = raw as { version?: unknown; profiles?: unknown };
-  return r.version === 2 && typeof r.profiles === "object" && r.profiles !== null;
+  return (
+    r.version === 2 &&
+    typeof r.profiles === "object" &&
+    r.profiles !== null &&
+    !Array.isArray(r.profiles)
+  );
 }
 
 function migrateLegacy(legacy: LegacyConfigFile): ConfigFileV2 {
