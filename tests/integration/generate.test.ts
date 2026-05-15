@@ -180,6 +180,49 @@ describe("generate", () => {
     expect(env.data.profile.name).toBe("(env)");
   });
 
+  it("--profile flag selects a non-active saved profile", async () => {
+    const cfgDir = path.join(tmpHome, ".gpt-image-cli");
+    fs.mkdirSync(cfgDir, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(
+      path.join(cfgDir, "config.json"),
+      JSON.stringify({
+        version: 2,
+        active: "a",
+        profiles: {
+          a: { type: "openai", api_key: "sk-a" },
+          b: { type: "openai", api_key: "sk-b", endpoint: "https://b/v1" },
+        },
+      }),
+      { mode: 0o600 },
+    );
+    delete process.env.OPENAI_API_KEY;
+    const captured: unknown[] = [];
+    await runGenerate(
+      {
+        prompt: "x",
+        count: 1,
+        size: "auto",
+        quality: "auto",
+        background: "auto",
+        outputFormat: "png",
+        stdoutBase64: false,
+      },
+      {
+        endpoint: undefined,
+        apiKey: undefined,
+        profile: "b",
+        format: "json",
+        jq: undefined,
+        dryRun: true,
+        yes: false,
+        verbose: false,
+      },
+      (env) => captured.push(env),
+    );
+    const env = captured[0] as { ok: true; data: { profile: { name: string } } };
+    expect(env.data.profile.name).toBe("b");
+  });
+
   it("rejects WEBP output_format when active profile is azure", async () => {
     const cfgDir = path.join(tmpHome, ".gpt-image-cli");
     fs.mkdirSync(cfgDir, { recursive: true, mode: 0o700 });
