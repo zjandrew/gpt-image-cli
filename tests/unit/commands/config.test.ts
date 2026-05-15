@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { actionGet, actionSet, actionShow, actionList } from "../../../src/commands/config.js";
+import { actionGet, actionSet, actionShow, actionList, actionUse } from "../../../src/commands/config.js";
 import { addProfile, useProfile } from "../../../src/core/config.js";
 
 describe("config command actions (profile-scoped)", () => {
@@ -82,5 +82,29 @@ describe("config list", () => {
     expect(data.profiles.map((p) => p.name)).toEqual(["alpha", "beta"]);
     expect(data.profiles.find((p) => p.name === "beta")?.active).toBe(true);
     expect(data.profiles.find((p) => p.name === "beta")?.type).toBe("azure");
+  });
+});
+
+describe("config use", () => {
+  let tmpHome3: string;
+  beforeEach(() => {
+    tmpHome3 = fs.mkdtempSync(path.join(os.tmpdir(), "gpt-image-cli-use-"));
+    process.env.HOME = tmpHome3;
+  });
+  afterEach(() => fs.rmSync(tmpHome3, { recursive: true, force: true }));
+
+  it("switches active and reports new value", () => {
+    addProfile("a", { type: "openai", api_key: "a" });
+    addProfile("b", { type: "openai", api_key: "b" });
+    let captured: unknown;
+    actionUse("b", (e) => (captured = e));
+    expect((captured as { ok: true; data: { active: string } }).data.active).toBe("b");
+  });
+
+  it("throws PROFILE_NOT_FOUND for missing profile", () => {
+    addProfile("a", { type: "openai", api_key: "a" });
+    expect(() => actionUse("missing", () => {})).toThrowError(
+      expect.objectContaining({ code: "PROFILE_NOT_FOUND" }),
+    );
   });
 });
