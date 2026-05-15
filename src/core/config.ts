@@ -182,11 +182,14 @@ const API_VERSION_RE = /^\d{4}-\d{2}-\d{2}(-preview)?$/;
 
 function validateProfile(p: Profile): void {
   if (p.type === "openai") {
-    if (!p.api_key) throw new CliError("INVALID_INPUT", "api_key is required");
+    if (!p.api_key?.trim()) {
+      throw new CliError("INVALID_INPUT", "api_key is required");
+    }
     return;
   }
   for (const k of AZURE_REQUIRED) {
-    if (!(p as unknown as Record<string, unknown>)[k]) {
+    const v = (p as unknown as Record<string, unknown>)[k];
+    if (typeof v !== "string" || !v.trim()) {
       throw new CliError("INVALID_INPUT", `azure profile missing required field: ${k}`);
     }
   }
@@ -238,6 +241,12 @@ export function getProfile(name: string): Profile | undefined {
 }
 
 export function addProfile(name: string, profile: Profile): void {
+  if (!name?.trim()) {
+    throw new CliError("INVALID_INPUT", "profile name is required");
+  }
+  if (name.includes("/")) {
+    throw new CliError("INVALID_INPUT", "profile name must not contain '/'");
+  }
   validateProfile(profile);
   const cfg = readConfigFile();
   if (cfg.profiles[name]) {
@@ -252,7 +261,7 @@ export function removeProfile(name: string): void {
   const cfg = readConfigFile();
   if (!cfg.profiles[name]) {
     throw new CliError("PROFILE_NOT_FOUND", `no such profile: ${name}`, {
-      available: Object.keys(cfg.profiles).sort(),
+      available: Object.keys(cfg.profiles).sort((a, b) => a.localeCompare(b)),
     });
   }
   if (Object.keys(cfg.profiles).length === 1) {
@@ -263,7 +272,7 @@ export function removeProfile(name: string): void {
   }
   delete cfg.profiles[name];
   if (cfg.active === name) {
-    cfg.active = Object.keys(cfg.profiles).sort()[0]!;
+    cfg.active = Object.keys(cfg.profiles).sort((a, b) => a.localeCompare(b))[0]!;
   }
   writeConfigFile(cfg);
 }
@@ -272,7 +281,7 @@ export function useProfile(name: string): void {
   const cfg = readConfigFile();
   if (!cfg.profiles[name]) {
     throw new CliError("PROFILE_NOT_FOUND", `no such profile: ${name}`, {
-      available: Object.keys(cfg.profiles).sort(),
+      available: Object.keys(cfg.profiles).sort((a, b) => a.localeCompare(b)),
     });
   }
   cfg.active = name;
@@ -294,7 +303,7 @@ export function setProfileField(
   const prof = cfg.profiles[name];
   if (!prof) {
     throw new CliError("PROFILE_NOT_FOUND", `no such profile: ${name}`, {
-      available: Object.keys(cfg.profiles).sort(),
+      available: Object.keys(cfg.profiles).sort((a, b) => a.localeCompare(b)),
     });
   }
   const allowed = prof.type === "openai" ? ALLOWED_KEYS_OPENAI : ALLOWED_KEYS_AZURE;

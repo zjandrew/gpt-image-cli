@@ -160,4 +160,34 @@ describe("profile CRUD", () => {
     expect(() => setProfileField("p", "api_version", "2024-02-01")).toThrow(/not allowed/);
     expect(() => setProfileField("p", "type", "azure")).toThrow(/type/);
   });
+
+  it("addProfile rejects whitespace-only api_key", () => {
+    expect(() =>
+      addProfile("p", { type: "openai", api_key: "   " }),
+    ).toThrow(/api_key is required/);
+  });
+
+  it("addProfile rejects whitespace-only azure required field", () => {
+    expect(() =>
+      addProfile("az", {
+        type: "azure",
+        endpoint: "https://r.openai.azure.com",
+        api_key: "k",
+        api_version: "  ",
+        deployment: "d",
+      }),
+    ).toThrow(/api_version/);
+  });
+
+  it("addProfile rejects empty profile name", () => {
+    expect(() =>
+      addProfile("", { type: "openai", api_key: "k" }),
+    ).toThrow(/name is required/);
+  });
+
+  it("addProfile rejects name containing '/'", () => {
+    expect(() =>
+      addProfile("a/b", { type: "openai", api_key: "k" }),
+    ).toThrow(/'\/'/);
+  });
 });
