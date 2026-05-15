@@ -5,7 +5,14 @@ import * as path from "node:path";
 import {
   readConfigFile,
   configFilePath,
+  addProfile,
+  removeProfile,
+  useProfile,
+  getProfile,
+  listProfiles,
+  setProfileField,
 } from "../../../src/core/config.js";
+import { CliError } from "../../../src/framework/errors.js";
 
 describe("v1 → v2 migration", () => {
   let tmpHome: string;
@@ -72,5 +79,85 @@ describe("v1 → v2 migration", () => {
   it("returns empty v2 skeleton when file does not exist", () => {
     const cfg = readConfigFile();
     expect(cfg).toEqual({ version: 2, active: null, profiles: {} });
+  });
+});
+
+describe("profile CRUD", () => {
+  let tmpHome: string;
+  const origEnv = { ...process.env };
+
+  beforeEach(() => {
+    tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "gpt-image-cli-crud-"));
+    process.env.HOME = tmpHome;
+  });
+
+  afterEach(() => {
+    process.env = { ...origEnv };
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+  });
+
+  it("addProfile creates a new openai profile and marks it active when first", () => {
+    addProfile("personal", {
+      type: "openai",
+      api_key: "sk-p",
+      endpoint: "https://api.openai.com/v1",
+    });
+    expect(getProfile("personal")?.type).toBe("openai");
+    expect(listProfiles().find((p) => p.name === "personal")?.active).toBe(true);
+  });
+
+  it("addProfile rejects duplicate name", () => {
+    addProfile("a", { type: "openai", api_key: "x" });
+    expect(() =>
+      addProfile("a", { type: "openai", api_key: "y" }),
+    ).toThrow(/already exists/);
+  });
+
+  it("addProfile validates required azure fields", () => {
+    expect(() =>
+      addProfile("az", {
+        type: "azure",
+        endpoint: "https://r.openai.azure.com",
+        api_key: "k",
+        api_version: "",
+        deployment: "d",
+      }),
+    ).toThrow(/api_version/);
+  });
+
+  it("useProfile switches active and throws PROFILE_NOT_FOUND if missing", () => {
+    addProfile("a", { type: "openai", api_key: "x" });
+    addProfile("b", { type: "openai", api_key: "y" });
+    useProfile("b");
+    expect(listProfiles().find((p) => p.active)?.name).toBe("b");
+    try {
+      useProfile("missing");
+      expect.fail("should have thrown");
+    } catch (e) {
+      expect((e as CliError).code).toBe("PROFILE_NOT_FOUND");
+      expect((e as CliError).details).toMatchObject({ available: ["a", "b"] });
+    }
+  });
+
+  it("removeProfile blocks removing the only profile", () => {
+    addProfile("only", { type: "openai", api_key: "x" });
+    expect(() => removeProfile("only")).toThrow(/only profile/i);
+  });
+
+  it("removeProfile of active switches to first remaining alphabetically", () => {
+    addProfile("zeta", { type: "openai", api_key: "z" });
+    addProfile("alpha", { type: "openai", api_key: "a" });
+    addProfile("beta", { type: "openai", api_key: "b" });
+    useProfile("beta");
+    removeProfile("beta");
+    expect(listProfiles().find((p) => p.active)?.name).toBe("alpha");
+  });
+
+  it("setProfileField mutates an existing profile and rejects foreign keys", () => {
+    addProfile("p", { type: "openai", api_key: "x" });
+    setProfileField("p", "endpoint", "https://new/v1");
+    expect(getProfile("p")?.endpoint).toBe("https://new/v1");
+    expect(() => setProfileField("p", "api_version", "2024-02-01")).toThrow(/not allowed/);
+    expect(() => setProfileField("p", "type", "azure")).toThrow(/type/);
   });
 });

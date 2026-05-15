@@ -4,8 +4,10 @@ import * as path from "node:path";
 import type {
   ConfigSource,
   Profile,
+  ProfileType,
   ResolvedProfile,
 } from "../framework/types.js";
+import { CliError } from "../framework/errors.js";
 
 export const DEFAULT_OPENAI_ENDPOINT = "https://api.openai.com/v1";
 
@@ -156,4 +158,153 @@ export function resolveConfig(flags: FlagConfigInput) {
       endpoint: (flags.endpoint ? "flag" : process.env.OPENAI_BASE_URL ? "env" : active?.endpoint ? "file" : "default") as ConfigSource,
     },
   };
+}
+
+// ---- Profile CRUD ----
+
+const AZURE_REQUIRED: readonly string[] = [
+  "endpoint",
+  "api_key",
+  "api_version",
+  "deployment",
+];
+
+const ALLOWED_KEYS_OPENAI = new Set(["api_key", "endpoint"]);
+const ALLOWED_KEYS_AZURE = new Set([
+  "api_key",
+  "endpoint",
+  "api_version",
+  "deployment",
+  "auth_style",
+]);
+
+const API_VERSION_RE = /^\d{4}-\d{2}-\d{2}(-preview)?$/;
+
+function validateProfile(p: Profile): void {
+  if (p.type === "openai") {
+    if (!p.api_key) throw new CliError("INVALID_INPUT", "api_key is required");
+    return;
+  }
+  for (const k of AZURE_REQUIRED) {
+    if (!(p as unknown as Record<string, unknown>)[k]) {
+      throw new CliError("INVALID_INPUT", `azure profile missing required field: ${k}`);
+    }
+  }
+  if (!API_VERSION_RE.test(p.api_version)) {
+    throw new CliError(
+      "INVALID_INPUT",
+      `api_version must match YYYY-MM-DD or YYYY-MM-DD-preview, got: ${p.api_version}`,
+    );
+  }
+  if (p.deployment.includes("/")) {
+    throw new CliError("INVALID_INPUT", "deployment must not contain '/'");
+  }
+  if (p.auth_style && p.auth_style !== "api-key" && p.auth_style !== "bearer") {
+    throw new CliError(
+      "INVALID_INPUT",
+      `auth_style must be "api-key" or "bearer"`,
+    );
+  }
+  if (p.endpoint.includes("/openai/deployments/")) {
+    process.stderr.write(
+      `[config] warning: endpoint should be the resource base URL only (no /openai/deployments/ path)\n`,
+    );
+  }
+}
+
+export interface ProfileSummary {
+  name: string;
+  type: ProfileType;
+  endpoint: string;
+  deployment?: string;
+  active: boolean;
+}
+
+export function listProfiles(): ProfileSummary[] {
+  const cfg = readConfigFile();
+  return Object.entries(cfg.profiles)
+    .map(([name, p]) => ({
+      name,
+      type: p.type,
+      endpoint: p.endpoint ?? DEFAULT_OPENAI_ENDPOINT,
+      deployment: p.type === "azure" ? p.deployment : undefined,
+      active: cfg.active === name,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function getProfile(name: string): Profile | undefined {
+  return readConfigFile().profiles[name];
+}
+
+export function addProfile(name: string, profile: Profile): void {
+  validateProfile(profile);
+  const cfg = readConfigFile();
+  if (cfg.profiles[name]) {
+    throw new CliError("INVALID_INPUT", `profile "${name}" already exists`);
+  }
+  cfg.profiles[name] = profile;
+  if (!cfg.active) cfg.active = name;
+  writeConfigFile(cfg);
+}
+
+export function removeProfile(name: string): void {
+  const cfg = readConfigFile();
+  if (!cfg.profiles[name]) {
+    throw new CliError("PROFILE_NOT_FOUND", `no such profile: ${name}`, {
+      available: Object.keys(cfg.profiles).sort(),
+    });
+  }
+  if (Object.keys(cfg.profiles).length === 1) {
+    throw new CliError(
+      "INVALID_INPUT",
+      "cannot remove the only profile — use `config init` to start over",
+    );
+  }
+  delete cfg.profiles[name];
+  if (cfg.active === name) {
+    cfg.active = Object.keys(cfg.profiles).sort()[0]!;
+  }
+  writeConfigFile(cfg);
+}
+
+export function useProfile(name: string): void {
+  const cfg = readConfigFile();
+  if (!cfg.profiles[name]) {
+    throw new CliError("PROFILE_NOT_FOUND", `no such profile: ${name}`, {
+      available: Object.keys(cfg.profiles).sort(),
+    });
+  }
+  cfg.active = name;
+  writeConfigFile(cfg);
+}
+
+export function setProfileField(
+  name: string,
+  key: string,
+  value: string,
+): void {
+  if (key === "type") {
+    throw new CliError(
+      "INVALID_INPUT",
+      "cannot change profile `type`; use `config remove` + `config add`",
+    );
+  }
+  const cfg = readConfigFile();
+  const prof = cfg.profiles[name];
+  if (!prof) {
+    throw new CliError("PROFILE_NOT_FOUND", `no such profile: ${name}`, {
+      available: Object.keys(cfg.profiles).sort(),
+    });
+  }
+  const allowed = prof.type === "openai" ? ALLOWED_KEYS_OPENAI : ALLOWED_KEYS_AZURE;
+  if (!allowed.has(key)) {
+    throw new CliError(
+      "INVALID_INPUT",
+      `key "${key}" not allowed for ${prof.type} profile (allowed: ${[...allowed].join(", ")})`,
+    );
+  }
+  (prof as unknown as Record<string, string>)[key] = value;
+  validateProfile(prof);
+  writeConfigFile(cfg);
 }
