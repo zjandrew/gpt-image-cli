@@ -80,3 +80,9 @@ describe("translateOpenAIError", () => {
     expect(cli.code).toBe("NETWORK_ERROR");
   });
 });
+
+describe("PROFILE_NOT_FOUND", () => {
+  it("maps to exit code 2", () => {
+    expect(exitCodeFor("PROFILE_NOT_FOUND")).toBe(2);
+  });
+});

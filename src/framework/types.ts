@@ -12,8 +12,38 @@ export interface ConfigResolution {
   sources: { apiKey: ConfigSource; endpoint: ConfigSource };
 }
 
+export type ProfileType = "openai" | "azure";
+
+export interface OpenAIProfile {
+  type: "openai";
+  api_key: string;
+  endpoint?: string;
+}
+
+export interface AzureProfile {
+  type: "azure";
+  endpoint: string;
+  api_key: string;
+  api_version: string;
+  deployment: string;
+  auth_style?: "api-key" | "bearer";
+}
+
+export type Profile = OpenAIProfile | AzureProfile;
+
+export interface ResolvedProfile {
+  name: string;
+  type: ProfileType;
+  apiKey: string;
+  endpoint: string;
+  apiVersion?: string;
+  deployment?: string;
+  authStyle?: "api-key" | "bearer";
+}
+
 export type ErrorCode =
   | "CONFIG_MISSING"
+  | "PROFILE_NOT_FOUND"
   | "INVALID_INPUT"
   | "IO_ERROR"
   | "OPENAI_API_ERROR"
@@ -39,6 +69,7 @@ export type OutputEnvelope = SuccessEnvelope | ErrorEnvelope;
 export interface GlobalOptions {
   endpoint?: string;
   apiKey?: string;
+  profile?: string;
   format: "json" | "table";
   jq?: string;
   dryRun: boolean;
@@ -47,13 +78,20 @@ export interface GlobalOptions {
 }
 
 export interface ImageOpResultData {
-  model: "gpt-image-2";
+  model: string;
   operation: "generate" | "edit";
   paths: string[];
   size: string;
   quality: string;
   output_format: string;
   count: number;
+  profile?: {
+    name: string;
+    type: ProfileType;
+    endpoint: string;
+    deployment?: string;
+    auth_style?: "api-key" | "bearer";
+  };
   usage?: {
     input_tokens: number;
     output_tokens: number;

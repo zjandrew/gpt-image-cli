@@ -20,6 +20,7 @@ export class CliError extends Error {
 
 const EXIT_CODES: Record<ErrorCode, number> = {
   CONFIG_MISSING: 2,
+  PROFILE_NOT_FOUND: 2,
   INVALID_INPUT: 2,
   IO_ERROR: 3,
   OPENAI_API_ERROR: 4,
