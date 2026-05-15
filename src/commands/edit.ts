@@ -87,6 +87,13 @@ export async function runEdit(
       profile: global.profile,
     }).profile;
 
+  if (profileForDescribe.type === "azure" && opts.outputFormat === "webp") {
+    throw new CliError(
+      "INVALID_INPUT",
+      "webp not supported on Azure profile — use png or jpeg",
+    );
+  }
+
   const modelForRequest =
     bundle?.model ??
     (profileForDescribe.type === "azure"

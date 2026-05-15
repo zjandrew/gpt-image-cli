@@ -179,4 +179,54 @@ describe("generate", () => {
     expect(env.data.profile.type).toBe("openai");
     expect(env.data.profile.name).toBe("(env)");
   });
+
+  it("rejects WEBP output_format when active profile is azure", async () => {
+    const cfgDir = path.join(tmpHome, ".gpt-image-cli");
+    fs.mkdirSync(cfgDir, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(
+      path.join(cfgDir, "config.json"),
+      JSON.stringify({
+        version: 2,
+        active: "az",
+        profiles: {
+          az: {
+            type: "azure",
+            endpoint: "https://r.openai.azure.com",
+            api_key: "k",
+            api_version: "2024-02-01",
+            deployment: "gpt-image-2",
+          },
+        },
+      }),
+      { mode: 0o600 },
+    );
+    delete process.env.OPENAI_API_KEY;
+
+    await expect(
+      runGenerate(
+        {
+          prompt: "x",
+          count: 1,
+          size: "1024x1024",
+          quality: "auto",
+          background: "auto",
+          outputFormat: "webp",
+          stdoutBase64: false,
+        },
+        {
+          endpoint: undefined,
+          apiKey: undefined,
+          format: "json",
+          jq: undefined,
+          dryRun: true,
+          yes: false,
+          verbose: false,
+        },
+        () => {},
+      ),
+    ).rejects.toMatchObject({
+      code: "INVALID_INPUT",
+      message: expect.stringMatching(/webp.*azure/i),
+    });
+  });
 });
