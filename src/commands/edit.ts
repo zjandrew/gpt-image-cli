@@ -118,7 +118,7 @@ export async function runEdit(
   if (opts.compression !== undefined) request.output_compression = opts.compression;
   if (opts.moderation) request.moderation = opts.moderation;
 
-  const client = makeClient({ apiKey: global.apiKey, endpoint: global.endpoint });
+  const { client } = makeClient({ apiKey: global.apiKey, endpoint: global.endpoint });
 
   let response;
   try {

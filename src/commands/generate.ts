@@ -150,7 +150,7 @@ export async function runGenerate(
     return;
   }
 
-  const client = makeClient({ apiKey: global.apiKey, endpoint: global.endpoint });
+  const { client } = makeClient({ apiKey: global.apiKey, endpoint: global.endpoint });
 
   let response;
   try {
