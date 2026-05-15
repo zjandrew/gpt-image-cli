@@ -11,6 +11,7 @@ import {
   addProfile,
   useProfile,
   listProfiles,
+  removeProfile,
 } from "../core/config.js";
 import { CliError } from "../framework/errors.js";
 import type { Emitter, Profile } from "../framework/types.js";
@@ -293,6 +294,33 @@ function registerAdd(cfg: Command, emit: Emitter) {
     });
 }
 
+export function actionRemove(name: string, yes: boolean, emit: Emitter): void {
+  const cfgBefore = readConfigFile();
+  const wasActive = cfgBefore.active === name;
+  if (wasActive && !yes) {
+    throw new CliError(
+      "INVALID_INPUT",
+      `refusing to remove active profile "${name}" without --yes`,
+    );
+  }
+  removeProfile(name);
+  const cfgAfter = readConfigFile();
+  emit({
+    ok: true,
+    data: { removed: name, new_active: cfgAfter.active },
+  });
+}
+
+function registerRemove(cfg: Command, emit: Emitter) {
+  cfg
+    .command("remove <name>")
+    .description("Delete a profile")
+    .action(async (name: string, _opts: unknown, cmd: Command) => {
+      const global = cmd.optsWithGlobals() as { yes?: boolean };
+      actionRemove(name, Boolean(global.yes), emit);
+    });
+}
+
 export function registerConfig(program: Command, emit: Emitter): void {
   const cfg = program.command("config").description("Manage CLI config");
   registerInit(cfg, emit);
@@ -303,13 +331,8 @@ export function registerConfig(program: Command, emit: Emitter): void {
   registerList(cfg, emit);
   registerUse(cfg, emit);
   registerAdd(cfg, emit);
-  // remove is wired up in Task 12.
+  registerRemove(cfg, emit);
 }
-
-// Touch this to suppress "unused" warnings if any helpers temporarily look unused.
-// (addProfile/useProfile imports are used in actionInit fallback paths in later tasks.)
-void addProfile;
-void useProfile;
 
 function prompt(question: string, opts: { mask?: boolean } = {}): Promise<string> {
   if (opts.mask) return promptMasked(question);

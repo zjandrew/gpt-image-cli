@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { actionGet, actionSet, actionShow, actionList, actionUse, actionAdd } from "../../../src/commands/config.js";
+import { actionGet, actionSet, actionShow, actionList, actionUse, actionAdd, actionRemove } from "../../../src/commands/config.js";
 import { addProfile, useProfile } from "../../../src/core/config.js";
 
 describe("config command actions (profile-scoped)", () => {
@@ -148,5 +148,41 @@ describe("config add (programmatic)", () => {
         () => {},
       ),
     ).toThrowError(expect.objectContaining({ code: "INVALID_INPUT" }));
+  });
+});
+
+describe("config remove", () => {
+  let tmpHome5: string;
+  beforeEach(() => {
+    tmpHome5 = fs.mkdtempSync(path.join(os.tmpdir(), "gpt-image-cli-rm-"));
+    process.env.HOME = tmpHome5;
+  });
+  afterEach(() => fs.rmSync(tmpHome5, { recursive: true, force: true }));
+
+  it("removes a non-active profile and reports", () => {
+    addProfile("a", { type: "openai", api_key: "a" });
+    addProfile("b", { type: "openai", api_key: "b" });
+    useProfile("b");
+    let captured: unknown;
+    actionRemove("a", false, (e) => (captured = e));
+    expect((captured as { ok: true; data: { removed: string; new_active: string } }).data.removed).toBe("a");
+  });
+
+  it("refuses to remove active profile without --yes", () => {
+    addProfile("a", { type: "openai", api_key: "a" });
+    addProfile("b", { type: "openai", api_key: "b" });
+    useProfile("a");
+    expect(() => actionRemove("a", false, () => {})).toThrowError(
+      expect.objectContaining({ code: "INVALID_INPUT" }),
+    );
+  });
+
+  it("removes active profile with --yes and auto-switches active", () => {
+    addProfile("alpha", { type: "openai", api_key: "x" });
+    addProfile("beta", { type: "openai", api_key: "y" });
+    useProfile("beta");
+    let captured: unknown;
+    actionRemove("beta", true, (e) => (captured = e));
+    expect((captured as { ok: true; data: { new_active: string } }).data.new_active).toBe("alpha");
   });
 });
