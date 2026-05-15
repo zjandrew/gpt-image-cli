@@ -223,6 +223,76 @@ function registerUse(cfg: Command, emit: Emitter) {
     .action((name: string) => actionUse(name, emit));
 }
 
+export function actionAdd(name: string, profile: Profile, emit: Emitter): void {
+  addProfile(name, profile);
+  emit({
+    ok: true,
+    data: {
+      profile: name,
+      type: profile.type,
+      path: configFilePath(),
+    },
+  });
+}
+
+async function actionAddInteractive(
+  name: string,
+  typeFlag: "openai" | "azure" | undefined,
+  emit: Emitter,
+): Promise<void> {
+  if (!process.stdin.isTTY) {
+    throw new CliError(
+      "INVALID_INPUT",
+      "`config add` interactive wizard requires a TTY",
+    );
+  }
+  const type =
+    typeFlag ??
+    (((await prompt("Profile type [openai/azure] (default openai): ")).toLowerCase() === "azure"
+      ? "azure"
+      : "openai") as "openai" | "azure");
+  let profile: Profile;
+  if (type === "openai") {
+    const apiKey = await prompt("OpenAI API key (sk-...): ", { mask: true });
+    const endpoint = await prompt(
+      "Endpoint (leave empty for default https://api.openai.com/v1): ",
+    );
+    profile = { type: "openai", api_key: apiKey };
+    if (endpoint) profile.endpoint = endpoint;
+  } else {
+    const endpoint = await prompt(
+      "Azure endpoint (e.g. https://<resource>.openai.azure.com): ",
+    );
+    const deployment = await prompt("Deployment name (e.g. gpt-image-2): ");
+    const apiVersion =
+      (await prompt("api-version (default 2024-02-01): ")) || "2024-02-01";
+    const apiKey = await prompt("API key: ", { mask: true });
+    const authAns = (await prompt(
+      "auth_style [api-key/bearer] (default api-key): ",
+    )).toLowerCase();
+    profile = {
+      type: "azure",
+      endpoint,
+      deployment,
+      api_version: apiVersion,
+      api_key: apiKey,
+      auth_style: authAns === "bearer" ? "bearer" : "api-key",
+    };
+  }
+  actionAdd(name, profile, emit);
+}
+
+function registerAdd(cfg: Command, emit: Emitter) {
+  cfg
+    .command("add <name>")
+    .description("Add a new profile (interactive wizard)")
+    .option("--type <type>", "openai | azure")
+    .action(async (name: string, opts: { type?: string }) => {
+      const t = opts.type === "azure" ? "azure" : opts.type === "openai" ? "openai" : undefined;
+      await actionAddInteractive(name, t, emit);
+    });
+}
+
 export function registerConfig(program: Command, emit: Emitter): void {
   const cfg = program.command("config").description("Manage CLI config");
   registerInit(cfg, emit);
@@ -232,7 +302,8 @@ export function registerConfig(program: Command, emit: Emitter): void {
   registerPath(cfg, emit);
   registerList(cfg, emit);
   registerUse(cfg, emit);
-  // add / remove are wired up in Tasks 11–12.
+  registerAdd(cfg, emit);
+  // remove is wired up in Task 12.
 }
 
 // Touch this to suppress "unused" warnings if any helpers temporarily look unused.

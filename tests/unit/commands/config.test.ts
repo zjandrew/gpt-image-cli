@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { actionGet, actionSet, actionShow, actionList, actionUse } from "../../../src/commands/config.js";
+import { actionGet, actionSet, actionShow, actionList, actionUse, actionAdd } from "../../../src/commands/config.js";
 import { addProfile, useProfile } from "../../../src/core/config.js";
 
 describe("config command actions (profile-scoped)", () => {
@@ -106,5 +106,47 @@ describe("config use", () => {
     expect(() => actionUse("missing", () => {})).toThrowError(
       expect.objectContaining({ code: "PROFILE_NOT_FOUND" }),
     );
+  });
+});
+
+describe("config add (programmatic)", () => {
+  let tmpHome4: string;
+  beforeEach(() => {
+    tmpHome4 = fs.mkdtempSync(path.join(os.tmpdir(), "gpt-image-cli-add-"));
+    process.env.HOME = tmpHome4;
+  });
+  afterEach(() => fs.rmSync(tmpHome4, { recursive: true, force: true }));
+
+  it("adds an azure profile and emits success envelope", () => {
+    let captured: unknown;
+    actionAdd(
+      "az",
+      {
+        type: "azure",
+        endpoint: "https://r.openai.azure.com",
+        api_key: "k",
+        api_version: "2024-02-01",
+        deployment: "gpt-image-2",
+        auth_style: "bearer",
+      },
+      (e) => (captured = e),
+    );
+    expect((captured as { ok: true; data: { profile: string } }).data.profile).toBe("az");
+  });
+
+  it("rejects invalid api_version", () => {
+    expect(() =>
+      actionAdd(
+        "az",
+        {
+          type: "azure",
+          endpoint: "https://r.openai.azure.com",
+          api_key: "k",
+          api_version: "not-a-date",
+          deployment: "gpt-image-2",
+        },
+        () => {},
+      ),
+    ).toThrowError(expect.objectContaining({ code: "INVALID_INPUT" }));
   });
 });
