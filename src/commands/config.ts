@@ -120,7 +120,7 @@ export async function actionInit(emit: Emitter): Promise<void> {
     const endpoint = await prompt(
       "Azure endpoint (e.g. https://<resource>.openai.azure.com): ",
     );
-    const deployment = await prompt("Deployment name (e.g. gpt-image-2): ");
+    const deployment = await prompt("Deployment name (e.g. gpt-image-2.5-flare): ");
     const apiVersion =
       (await prompt("api-version (default 2024-02-01): ")) || "2024-02-01";
     const apiKey = await prompt("API key: ", { mask: true });
@@ -264,7 +264,7 @@ async function actionAddInteractive(
     const endpoint = await prompt(
       "Azure endpoint (e.g. https://<resource>.openai.azure.com): ",
     );
-    const deployment = await prompt("Deployment name (e.g. gpt-image-2): ");
+    const deployment = await prompt("Deployment name (e.g. gpt-image-2.5-flare): ");
     const apiVersion =
       (await prompt("api-version (default 2024-02-01): ")) || "2024-02-01";
     const apiKey = await prompt("API key: ", { mask: true });

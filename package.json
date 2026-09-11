@@ -1,7 +1,7 @@
 {
   "name": "@zhoujinandrew/gpt-image-cli",
-  "version": "1.1.0",
-  "description": "CLI for OpenAI gpt-image-2 generation and editing, with a companion Claude Code SKILL",
+  "version": "1.2.0",
+  "description": "CLI for OpenAI gpt-image-2.5 (flare/sunburst) generation and editing, with a companion Claude Code SKILL",
   "type": "module",
   "bin": {
     "gpt-image-cli": "bin/gpt-image-cli.js"
@@ -16,6 +16,7 @@
   "keywords": [
     "openai",
     "gpt-image-2",
+    "gpt-image-2.5",
     "image-generation",
     "cli",
     "claude-code",

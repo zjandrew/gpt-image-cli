@@ -23,13 +23,13 @@ describe("makeClient", () => {
     fs.rmSync(tmpHome, { recursive: true, force: true });
   });
 
-  it("returns plain OpenAI client + model 'gpt-image-2' for openai profile", () => {
+  it("returns plain OpenAI client + model DEFAULT_MODEL (gpt-image-2.5-flare) for openai profile", () => {
     addProfile("p", { type: "openai", api_key: "sk-x", endpoint: "https://api.openai.com/v1" });
     useProfile("p");
     const bundle = makeClient({});
     expect(bundle.client).toBeInstanceOf(OpenAI);
     expect(bundle.client).not.toBeInstanceOf(AzureOpenAI);
-    expect(bundle.model).toBe("gpt-image-2");
+    expect(bundle.model).toBe("gpt-image-2.5-flare");
     expect(bundle.profile.type).toBe("openai");
   });
 

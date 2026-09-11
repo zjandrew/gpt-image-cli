@@ -2,7 +2,7 @@
 import * as fs from "node:fs";
 import { Command } from "commander";
 import { toFile } from "openai";
-import { makeClient } from "../core/client.js";
+import { DEFAULT_MODEL, makeClient } from "../core/client.js";
 import { resolveActiveProfile } from "../core/config.js";
 import { itemToBuffer, looksLikeHtml, truncate } from "../core/image-response.js";
 import { resolveImageInput } from "../core/image-input.js";
@@ -98,7 +98,7 @@ export async function runEdit(
     bundle?.model ??
     (profileForDescribe.type === "azure"
       ? profileForDescribe.deployment!
-      : "gpt-image-2");
+      : DEFAULT_MODEL);
 
   const profileBlock = {
     name: profileForDescribe.name,

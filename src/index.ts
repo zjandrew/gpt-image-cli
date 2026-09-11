@@ -12,7 +12,7 @@ import { registerGenerate } from "./commands/generate.js";
 import { registerEdit } from "./commands/edit.js";
 import { registerConfig } from "./commands/config.js";
 
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 
 function makeEmitter(program: Command): Emitter {
   return (env: OutputEnvelope, opts?: EmitOptions) => {
@@ -29,7 +29,7 @@ async function main(): Promise<void> {
   program
     .name("gpt-image-cli")
     .version(VERSION)
-    .description("OpenAI gpt-image-2 generation and editing CLI")
+    .description("OpenAI gpt-image-2.5 generation and editing CLI")
     .option("--endpoint <url>", "override endpoint for this invocation")
     .option("--api-key <key>", "override API key for this invocation")
     .option("--profile <name>", "select a saved profile (overrides GPT_IMAGE_PROFILE and active)")

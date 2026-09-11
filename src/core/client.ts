@@ -3,6 +3,9 @@ import { CliError } from "../framework/errors.js";
 import { resolveActiveProfile, type FlagConfigInput } from "./config.js";
 import type { ResolvedProfile } from "../framework/types.js";
 
+// Default model for OpenAI-type profiles. Azure profiles use their deployment name.
+export const DEFAULT_MODEL = "gpt-image-2.5-flare";
+
 export interface ClientBundle {
   client: OpenAI | AzureOpenAI;
   model: string;
@@ -22,7 +25,7 @@ export function makeClient(flags: FlagConfigInput): ClientBundle {
   if (profile.type === "openai") {
     return {
       client: new OpenAI({ apiKey: profile.apiKey, baseURL: profile.endpoint }),
-      model: "gpt-image-2",
+      model: DEFAULT_MODEL,
       profile,
     };
   }

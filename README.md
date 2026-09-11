@@ -1,6 +1,6 @@
 # gpt-image-cli
 
-CLI for OpenAI `gpt-image-2` — text-to-image and image editing — with an accompanying SKILL for Claude Code / AI agents.
+CLI for OpenAI `gpt-image-2.5` — text-to-image and image editing — with an accompanying SKILL for Claude Code / AI agents.
 
 ## Install
 
@@ -51,7 +51,7 @@ gpt-image-cli config list
 gpt-image-cli config add azure-prod --type azure
 # prompts:
 #   Azure endpoint:    https://<resource>.openai.azure.com
-#   Deployment name:   gpt-image-2
+#   Deployment name:   gpt-image-2.5-flare
 #   api-version:       2024-02-01
 #   API key:           ********
 #   auth_style:        api-key       (default; or "bearer")
@@ -80,7 +80,7 @@ The resulting config (`~/.gpt-image-cli/config.json`, chmod 600):
       "endpoint": "https://<resource>.openai.azure.com",
       "api_key": "...",
       "api_version": "2024-02-01",
-      "deployment": "gpt-image-2",
+      "deployment": "gpt-image-2.5-flare",
       "auth_style": "bearer"
     }
   }
@@ -95,6 +95,15 @@ Notes on Azure profiles:
 - `output_format=webp` is rejected — Azure only supports `png` and `jpeg`.
 - `auth_style: "bearer"` sends `Authorization: Bearer <key>` (matches the format some Azure gateways accept). Default `api-key` sends `api-key: <key>` per Microsoft's standard.
 - `endpoint` is the bare resource URL (`https://<resource>.openai.azure.com`) — do not include `/openai/deployments/...`; the SDK appends that.
+
+## Models
+
+| Profile type | Model used |
+|---|---|
+| `openai` | `gpt-image-2.5-flare` (hardcoded default since 1.2.0; no `--model` flag yet) |
+| `azure` | whatever the profile's `deployment` points at |
+
+OpenAI ships two 2.5 variants: `gpt-image-2.5-flare` (default choice, ~50% lower latency than gpt-image-2) and `gpt-image-2.5-sunburst` (slower, tighter control for precision editing). On Azure, deploy either one in Microsoft Foundry and point a profile at it, e.g. `config add azure-flare --type azure` with deployment `gpt-image-2.5-flare`. A profile whose deployment is still `gpt-image-2` keeps working unchanged.
 
 ## Usage
 

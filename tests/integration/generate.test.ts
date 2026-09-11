@@ -14,7 +14,7 @@ const PNG_1X1 =
 const server = setupServer(
   http.post("https://api.openai.com/v1/images/generations", async ({ request }) => {
     const body = (await request.json()) as Record<string, unknown>;
-    expect(body.model).toBe("gpt-image-2");
+    expect(body.model).toBe("gpt-image-2.5-flare");
     return HttpResponse.json({
       created: 1,
       data: [{ b64_json: PNG_1X1 }],
@@ -64,7 +64,7 @@ describe("generate", () => {
     expect(fs.existsSync(path.join(dir, "cat.png"))).toBe(true);
     const env = captured[0] as { ok: boolean; data: { paths: string[]; model: string } };
     expect(env.ok).toBe(true);
-    expect(env.data.model).toBe("gpt-image-2");
+    expect(env.data.model).toBe("gpt-image-2.5-flare");
     expect(env.data.paths).toEqual([path.join(dir, "cat.png")]);
   });
 

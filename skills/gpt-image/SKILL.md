@@ -1,6 +1,6 @@
 ---
 name: gpt-image
-version: 1.3.0
+version: 1.4.0
 description: "当用户需要生成图片、修图、加元素、抠背景、替换场景,或多轮迭代优化图片(生成预览 → 反馈 → 改版)时使用。"
 metadata:
   requires:
@@ -10,7 +10,7 @@ metadata:
 
 # gpt-image
 
-一句话:本 SKILL 驱动 `gpt-image-cli`,用 OpenAI `gpt-image-2` 模型生成或编辑图片。
+一句话:本 SKILL 驱动 `gpt-image-cli`,用 OpenAI `gpt-image-2.5` 模型(默认 `gpt-image-2.5-flare`)生成或编辑图片。
 
 **核心原则**:统一走 `gpt-image-cli` 入口(不手拼 curl);每次生图后必 `Read`
 本轮刚写的 PNG 再汇报;多轮优化时靠 prompt 显式重述视觉要素,不靠模型记忆。
@@ -120,7 +120,7 @@ PNG 就能看见画面——所以**不需要 gpt-4.1-mini / Responses API / 额
 然后把这 4 段**展开成一段自洽的自然语言 prompt**(不要把 `[...]` 标签带进去)。
 
 规则:
-- **不要**写 "like before but brighter" / "保持原样只改 X" ——gpt-image-2
+- **不要**写 "like before but brighter" / "保持原样只改 X" ——gpt-image-2.5
   没有上下文,它不懂"before"和"原样"。每轮 prompt 必须**完整自包含**
 - `-s`、`-q`、`-f` 等画布参数**跨轮保持不变**,便于 A/B 比对
 - 每段 1-2 句,整体 prompt 控制在 200 字内,别堆成 500 字大段
@@ -153,9 +153,9 @@ refine/<topic>/
 ### 必须不做
 
 - 不要悄悄切换到 `edit` 接口——用户选了 generate 路线就走到底
-- 不要用"保持原样只改 XX"这类相对 prompt,gpt-image-2 不懂"原样"
+- 不要用"保持原样只改 XX"这类相对 prompt,gpt-image-2.5 不懂"原样"
 - 不要跨轮改 `-s`,会造成构图大跳
-- 不要把多轮 prompt 拼成一长串历史塞给模型,gpt-image-2 不当它对话上下文看
+- 不要把多轮 prompt 拼成一长串历史塞给模型,gpt-image-2.5 不当它对话上下文看
 - 不要生成完不 `Read` 就给用户总结——你没看就不知道模型画了什么
 
 ### Red Flags — 出现这些信号立即停下
@@ -167,7 +167,7 @@ refine/<topic>/
 
 ### 局限与兜底
 
-gpt-image-2 每轮都是"从零构图",**即便你重述视觉要素,仍会有轻微漂移**
+gpt-image-2.5 每轮都是"从零构图",**即便你重述视觉要素,仍会有轻微漂移**
 (姿态、小道具细节等)。这是模型层特性,不是 SKILL 问题。
 
 **如果用户要求像素级保留某元素**(人脸 / LOGO / 品牌色值):多轮优化不是对的工具。
@@ -250,6 +250,6 @@ gpt-image-2 每轮都是"从零构图",**即便你重述视觉要素,仍会有�
 ## 不要做
 
 - 不要用本 SKILL 分析或识别现有图片(vision 任务,本 CLI 不覆盖)。
-- 不要尝试调用除 `gpt-image-2` 以外的 model-id(CLI 写死 `gpt-image-2`,无 `--model` flag)。
+- OpenAI profile 写死 `gpt-image-2.5-flare`,无 `--model` flag。要用 `gpt-image-2.5-sunburst`(精修编辑)或旧的 `gpt-image-2`,走 Azure profile 的 `deployment` 字段(`config add <name> --type azure`),不要手改 model-id。
 - 不要自己拼 `curl` 调 OpenAI Images 端点 — 走 CLI,保证 envelope/错误路径统一。
 - 不要在 prompt 里写与 `-s` 不一致的长宽比;画布和语义必须对齐。

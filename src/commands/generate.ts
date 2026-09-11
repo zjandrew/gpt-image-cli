@@ -2,7 +2,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Command } from "commander";
-import { makeClient } from "../core/client.js";
+import { DEFAULT_MODEL, makeClient } from "../core/client.js";
 import { resolveActiveProfile } from "../core/config.js";
 import { itemToBuffer, looksLikeHtml, truncate } from "../core/image-response.js";
 import { ensureParentDir, resolveOutputPaths } from "../core/naming.js";
@@ -157,7 +157,7 @@ export async function runGenerate(
     bundle?.model ??
     (profileForDescribe.type === "azure"
       ? profileForDescribe.deployment!
-      : "gpt-image-2");
+      : DEFAULT_MODEL);
 
   const request: Record<string, unknown> = {
     model: modelForRequest,
