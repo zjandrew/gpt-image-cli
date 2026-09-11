@@ -100,10 +100,19 @@ Notes on Azure profiles:
 
 | Profile type | Model used |
 |---|---|
-| `openai` | `gpt-image-2.5-flare` (hardcoded default since 1.2.0; no `--model` flag yet) |
-| `azure` | whatever the profile's `deployment` points at |
+| `openai` | `gpt-image-2.5-flare` by default; `--model <id>` overrides per invocation |
+| `azure` | the profile's `deployment`; `--model <name>` overrides the deployment name per invocation |
 
-OpenAI ships two 2.5 variants: `gpt-image-2.5-flare` (default choice, ~50% lower latency than gpt-image-2) and `gpt-image-2.5-sunburst` (slower, tighter control for precision editing). On Azure, deploy either one in Microsoft Foundry and point a profile at it, e.g. `config add azure-flare --type azure` with deployment `gpt-image-2.5-flare`. A profile whose deployment is still `gpt-image-2` keeps working unchanged.
+OpenAI ships two 2.5 variants: `gpt-image-2.5-flare` (fast default) and `gpt-image-2.5-sunburst` (slower, tighter control for precision and multi-round editing). Same token price.
+
+```bash
+gpt-image-cli generate -p "..." --out a.png                                  # flare
+gpt-image-cli --model gpt-image-2.5-sunburst edit --image a.png -p "..." --out b.png
+```
+
+On Azure, deploy both models in Microsoft Foundry and **name each deployment after its model id** so `--model` works the same way; a profile's `deployment` is just the default when `--model` is absent.
+
+Quality accepts `low | medium | high | xhigh | max | auto`. `--input-fidelity` is only sent when you pass it, and gpt-image-2.5 models reject it.
 
 ## Usage
 

@@ -70,6 +70,7 @@ export interface GlobalOptions {
   endpoint?: string;
   apiKey?: string;
   profile?: string;
+  model?: string;
   format: "json" | "table";
   jq?: string;
   dryRun: boolean;

@@ -2,7 +2,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Command } from "commander";
-import { DEFAULT_MODEL, makeClient } from "../core/client.js";
+import { makeClient, resolveModel } from "../core/client.js";
 import { resolveActiveProfile } from "../core/config.js";
 import { itemToBuffer, looksLikeHtml, truncate } from "../core/image-response.js";
 import { ensureParentDir, resolveOutputPaths } from "../core/naming.js";
@@ -26,7 +26,7 @@ export interface GenerateOptions {
   stdoutBase64: boolean;
 }
 
-const QUALITY_VALUES = new Set(["low", "medium", "high", "auto"]);
+const QUALITY_VALUES = new Set(["low", "medium", "high", "xhigh", "max", "auto"]);
 const BG_VALUES = new Set(["transparent", "opaque", "auto"]);
 const FMT_VALUES = new Set(["png", "jpeg", "webp"]);
 const MOD_VALUES = new Set(["auto", "low"]);
@@ -136,7 +136,7 @@ export async function runGenerate(
         apiKey: global.apiKey,
         endpoint: global.endpoint,
         profile: global.profile,
-      });
+      }, global.model);
 
   const profileForDescribe =
     bundle?.profile ??
@@ -153,11 +153,7 @@ export async function runGenerate(
     );
   }
 
-  const modelForRequest =
-    bundle?.model ??
-    (profileForDescribe.type === "azure"
-      ? profileForDescribe.deployment!
-      : DEFAULT_MODEL);
+  const modelForRequest = bundle?.model ?? resolveModel(profileForDescribe, global.model);
 
   const request: Record<string, unknown> = {
     model: modelForRequest,
@@ -182,7 +178,7 @@ export async function runGenerate(
   if (global.verbose && profileForDescribe.type === "azure") {
     const url =
       `${profileForDescribe.endpoint.replace(/\/$/, "")}` +
-      `/openai/deployments/${profileForDescribe.deployment}` +
+      `/openai/deployments/${modelForRequest}` +
       `/images/generations?api-version=${profileForDescribe.apiVersion}`;
     process.stderr.write(`[verbose] POST ${url}\n`);
     const authLabel = profileForDescribe.authStyle === "bearer" ? "Bearer ***" : "api-key ***";
@@ -275,7 +271,7 @@ export function registerGenerate(
     .requiredOption("-p, --prompt <text>", "prompt (use '-' to read stdin)")
     .option("-n, --count <int>", "number of images (1-10)", (v) => parseInt(v, 10), 1)
     .option("-s, --size <wxh>", "image size", "auto")
-    .option("-q, --quality <level>", "quality: low/medium/high/auto", "auto")
+    .option("-q, --quality <level>", "quality: low/medium/high/xhigh/max/auto", "auto")
     .option("-b, --background <mode>", "background: transparent/opaque/auto", "auto")
     .option("-f, --output-format <fmt>", "output format: png/jpeg/webp", "png")
     .option("--compression <int>", "jpeg/webp compression 0-100", (v) => parseInt(v, 10))

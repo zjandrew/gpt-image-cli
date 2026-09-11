@@ -12,7 +12,18 @@ export interface ClientBundle {
   profile: ResolvedProfile;
 }
 
-export function makeClient(flags: FlagConfigInput): ClientBundle {
+/**
+ * Effective model for a request. `--model` overrides everything: for openai
+ * profiles it is the model id, for azure profiles it is the deployment name
+ * (deployments are conventionally named after the model id).
+ */
+export function resolveModel(profile: ResolvedProfile, override?: string): string {
+  const o = override?.trim();
+  if (o) return o;
+  return profile.type === "azure" ? profile.deployment! : DEFAULT_MODEL;
+}
+
+export function makeClient(flags: FlagConfigInput, modelOverride?: string): ClientBundle {
   const { profile } = resolveActiveProfile(flags);
 
   if (!profile.apiKey) {
@@ -22,19 +33,21 @@ export function makeClient(flags: FlagConfigInput): ClientBundle {
     );
   }
 
+  const model = resolveModel(profile, modelOverride);
+
   if (profile.type === "openai") {
     return {
       client: new OpenAI({ apiKey: profile.apiKey, baseURL: profile.endpoint }),
-      model: DEFAULT_MODEL,
+      model,
       profile,
     };
   }
 
-  // azure
+  // azure — `model` doubles as the deployment name
   const common = {
     endpoint: profile.endpoint,
     apiVersion: profile.apiVersion!,
-    deployment: profile.deployment!,
+    deployment: model,
   };
   const client =
     profile.authStyle === "bearer"
@@ -44,5 +57,5 @@ export function makeClient(flags: FlagConfigInput): ClientBundle {
         })
       : new AzureOpenAI({ ...common, apiKey: profile.apiKey });
 
-  return { client, model: profile.deployment!, profile };
+  return { client, model, profile };
 }

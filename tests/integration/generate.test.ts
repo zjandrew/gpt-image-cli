@@ -330,4 +330,86 @@ describe("generate", () => {
     );
     expect(all).toContain("auth: Bearer ***");
   });
+
+  const baseOpts = {
+    prompt: "x",
+    count: 1,
+    size: "auto",
+    quality: "auto",
+    background: "auto",
+    outputFormat: "png",
+    stdoutBase64: false,
+  };
+  const dryGlobal = {
+    endpoint: undefined,
+    apiKey: undefined,
+    format: "json" as const,
+    jq: undefined,
+    dryRun: true,
+    yes: false,
+    verbose: false,
+  };
+
+  it("--model overrides the request model for openai profile (dry-run)", async () => {
+    const captured: unknown[] = [];
+    await runGenerate(baseOpts, { ...dryGlobal, model: "gpt-image-2.5-sunburst" }, (env) => captured.push(env));
+    const env = captured[0] as { data: { request: { model: string } } };
+    expect(env.data.request.model).toBe("gpt-image-2.5-sunburst");
+  });
+
+  it("accepts quality xhigh and max", async () => {
+    for (const q of ["xhigh", "max"]) {
+      const captured: unknown[] = [];
+      await runGenerate({ ...baseOpts, quality: q }, dryGlobal, (env) => captured.push(env));
+      const env = captured[0] as { data: { request: { quality: string } } };
+      expect(env.data.request.quality).toBe(q);
+    }
+  });
+
+  it("rejects unknown quality", async () => {
+    await expect(
+      runGenerate({ ...baseOpts, quality: "ultra" }, dryGlobal, () => {}),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("--model overrides the Azure deployment in the verbose URL (dry-run)", async () => {
+    const cfgDir = path.join(tmpHome, ".gpt-image-cli");
+    fs.mkdirSync(cfgDir, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(
+      path.join(cfgDir, "config.json"),
+      JSON.stringify({
+        version: 2,
+        active: "az",
+        profiles: {
+          az: {
+            type: "azure",
+            endpoint: "https://r.openai.azure.com",
+            api_key: "k",
+            api_version: "2024-02-01",
+            deployment: "gpt-image-2.5-flare",
+          },
+        },
+      }),
+      { mode: 0o600 },
+    );
+    delete process.env.OPENAI_API_KEY;
+    const writes: string[] = [];
+    const spy = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+      writes.push(String(chunk));
+      return true;
+    });
+    const captured: unknown[] = [];
+    await runGenerate(
+      baseOpts,
+      { ...dryGlobal, verbose: true, model: "gpt-image-2.5-sunburst" },
+      (env) => captured.push(env),
+    );
+    spy.mockRestore();
+    expect(writes.join("")).toContain(
+      "/openai/deployments/gpt-image-2.5-sunburst/images/generations?api-version=2024-02-01",
+    );
+    const env = captured[0] as { data: { request: { model: string }; profile: { deployment: string } } };
+    expect(env.data.request.model).toBe("gpt-image-2.5-sunburst");
+    expect(env.data.profile.deployment).toBe("gpt-image-2.5-flare");
+  });
 });

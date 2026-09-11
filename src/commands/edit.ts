@@ -2,7 +2,7 @@
 import * as fs from "node:fs";
 import { Command } from "commander";
 import { toFile } from "openai";
-import { DEFAULT_MODEL, makeClient } from "../core/client.js";
+import { makeClient, resolveModel } from "../core/client.js";
 import { resolveActiveProfile } from "../core/config.js";
 import { itemToBuffer, looksLikeHtml, truncate } from "../core/image-response.js";
 import { resolveImageInput } from "../core/image-input.js";
@@ -19,7 +19,7 @@ export interface EditOptions {
   prompt: string;
   images: string[];
   mask?: string;
-  inputFidelity: string;
+  inputFidelity?: string;
   count: number;
   size: string;
   quality: string;
@@ -49,7 +49,7 @@ function validateEditOptions(opts: EditOptions): void {
   if (!opts.images || opts.images.length === 0) {
     throw new CliError("INVALID_INPUT", "--image is required (at least one)");
   }
-  if (!FIDELITY_VALUES.has(opts.inputFidelity)) {
+  if (opts.inputFidelity !== undefined && !FIDELITY_VALUES.has(opts.inputFidelity)) {
     throw new CliError(
       "INVALID_INPUT",
       `input-fidelity must be one of: ${[...FIDELITY_VALUES].join(", ")}`,
@@ -77,7 +77,7 @@ export async function runEdit(
         apiKey: global.apiKey,
         endpoint: global.endpoint,
         profile: global.profile,
-      });
+      }, global.model);
 
   const profileForDescribe =
     bundle?.profile ??
@@ -94,11 +94,7 @@ export async function runEdit(
     );
   }
 
-  const modelForRequest =
-    bundle?.model ??
-    (profileForDescribe.type === "azure"
-      ? profileForDescribe.deployment!
-      : DEFAULT_MODEL);
+  const modelForRequest = bundle?.model ?? resolveModel(profileForDescribe, global.model);
 
   const profileBlock = {
     name: profileForDescribe.name,
@@ -111,7 +107,7 @@ export async function runEdit(
   if (global.verbose && profileForDescribe.type === "azure") {
     const url =
       `${profileForDescribe.endpoint.replace(/\/$/, "")}` +
-      `/openai/deployments/${profileForDescribe.deployment}` +
+      `/openai/deployments/${modelForRequest}` +
       `/images/edits?api-version=${profileForDescribe.apiVersion}`;
     process.stderr.write(`[verbose] POST ${url}\n`);
     const authLabel = profileForDescribe.authStyle === "bearer" ? "Bearer ***" : "api-key ***";
@@ -132,8 +128,8 @@ export async function runEdit(
       quality: opts.quality,
       background: opts.background,
       output_format: opts.outputFormat,
-      input_fidelity: opts.inputFidelity,
     };
+    if (opts.inputFidelity !== undefined) dryRequest.input_fidelity = opts.inputFidelity;
     if (opts.mask) dryRequest.mask = "<file>";
     if (opts.compression !== undefined) dryRequest.output_compression = opts.compression;
     if (opts.moderation) dryRequest.moderation = opts.moderation;
@@ -166,8 +162,9 @@ export async function runEdit(
     quality: opts.quality,
     background: opts.background,
     output_format: opts.outputFormat,
-    input_fidelity: opts.inputFidelity,
   };
+  // Only sent when explicitly requested: gpt-image-2.5 models reject the parameter.
+  if (opts.inputFidelity !== undefined) request.input_fidelity = opts.inputFidelity;
   if (maskFile) request.mask = maskFile;
   if (opts.compression !== undefined) request.output_compression = opts.compression;
   if (opts.moderation) request.moderation = opts.moderation;
@@ -251,10 +248,10 @@ export function registerEdit(
       [],
     )
     .option("--mask <path|url>", "optional inpainting mask")
-    .option("--input-fidelity <level>", "low | high", "low")
+    .option("--input-fidelity <level>", "low | high (only sent when set; gpt-image-2.5 models reject it)")
     .option("-n, --count <int>", "number of outputs (1-10)", (v) => parseInt(v, 10), 1)
     .option("-s, --size <wxh>", "image size", "auto")
-    .option("-q, --quality <level>", "quality", "auto")
+    .option("-q, --quality <level>", "quality: low/medium/high/xhigh/max/auto", "auto")
     .option("-b, --background <mode>", "background", "auto")
     .option("-f, --output-format <fmt>", "output format", "png")
     .option("--compression <int>", "jpeg/webp compression 0-100", (v) => parseInt(v, 10))
@@ -266,7 +263,7 @@ export function registerEdit(
         prompt: raw.prompt as string,
         images: (raw.image as string[]) ?? [],
         mask: raw.mask as string | undefined,
-        inputFidelity: (raw.inputFidelity as string) ?? "low",
+        inputFidelity: raw.inputFidelity as string | undefined,
         count: raw.count as number,
         size: raw.size as string,
         quality: raw.quality as string,

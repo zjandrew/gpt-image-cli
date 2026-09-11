@@ -70,4 +70,32 @@ describe("makeClient", () => {
   it("CONFIG_MISSING when nothing resolves", () => {
     expect(() => makeClient({})).toThrow(/CONFIG_MISSING|API key not set/);
   });
+
+  it("--model override replaces DEFAULT_MODEL for openai profile", () => {
+    addProfile("p", { type: "openai", api_key: "sk-x", endpoint: "https://api.openai.com/v1" });
+    useProfile("p");
+    const bundle = makeClient({}, "gpt-image-2.5-sunburst");
+    expect(bundle.model).toBe("gpt-image-2.5-sunburst");
+  });
+
+  it("--model override replaces deployment name for azure profile", () => {
+    addProfile("az", {
+      type: "azure",
+      endpoint: "https://r.openai.azure.com",
+      api_key: "k1",
+      api_version: "2024-02-01",
+      deployment: "gpt-image-2.5-flare",
+      auth_style: "api-key",
+    });
+    useProfile("az");
+    const bundle = makeClient({}, "gpt-image-2.5-sunburst");
+    expect(bundle.model).toBe("gpt-image-2.5-sunburst");
+    expect((bundle.client as AzureOpenAI).deploymentName).toBe("gpt-image-2.5-sunburst");
+  });
+
+  it("blank --model override falls back to profile default", () => {
+    addProfile("p", { type: "openai", api_key: "sk-x", endpoint: "https://api.openai.com/v1" });
+    useProfile("p");
+    expect(makeClient({}, "   ").model).toBe("gpt-image-2.5-flare");
+  });
 });

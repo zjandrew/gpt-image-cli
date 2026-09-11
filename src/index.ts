@@ -12,7 +12,7 @@ import { registerGenerate } from "./commands/generate.js";
 import { registerEdit } from "./commands/edit.js";
 import { registerConfig } from "./commands/config.js";
 
-const VERSION = "1.2.0";
+const VERSION = "1.3.0";
 
 function makeEmitter(program: Command): Emitter {
   return (env: OutputEnvelope, opts?: EmitOptions) => {
@@ -33,6 +33,7 @@ async function main(): Promise<void> {
     .option("--endpoint <url>", "override endpoint for this invocation")
     .option("--api-key <key>", "override API key for this invocation")
     .option("--profile <name>", "select a saved profile (overrides GPT_IMAGE_PROFILE and active)")
+    .option("--model <id>", "override model id (openai profile) or deployment name (azure profile) for this invocation")
     .option("--format <format>", "output format: json | table", "json")
     .option("--jq <expr>", "jq-like path filter on envelope")
     .option("--dry-run", "print request without calling API", false)

@@ -48,7 +48,6 @@ describe("edit", () => {
         prompt: "add a hat",
         images: [path.join(dir, "base.png")],
         mask: undefined,
-        inputFidelity: "low",
         count: 1,
         size: "auto",
         quality: "auto",
@@ -81,7 +80,6 @@ describe("edit", () => {
         // intentionally nonexistent file — dry-run should never read it
         images: ["/tmp/does-not-exist.png"],
         mask: undefined,
-        inputFidelity: "low",
         count: 1,
         size: "auto",
         quality: "auto",
@@ -135,5 +133,54 @@ describe("edit", () => {
         () => {},
       ),
     ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  const editOpts = (dir: string) => ({
+    prompt: "add a hat",
+    images: [path.join(dir, "base.png")],
+    mask: undefined,
+    count: 1,
+    size: "auto",
+    quality: "auto",
+    background: "auto",
+    outputFormat: "png",
+    out: path.join(dir, "out.png"),
+    stdoutBase64: false,
+  });
+  const dryGlobal = {
+    endpoint: undefined,
+    apiKey: undefined,
+    format: "json" as const,
+    jq: undefined,
+    dryRun: true,
+    yes: false,
+    verbose: false,
+  };
+
+  it("does not send input_fidelity unless explicitly set", async () => {
+    const captured: unknown[] = [];
+    await runEdit(editOpts(dir), dryGlobal, (env) => captured.push(env));
+    const env = captured[0] as { data: { request: Record<string, unknown> } };
+    expect("input_fidelity" in env.data.request).toBe(false);
+  });
+
+  it("sends input_fidelity when explicitly set", async () => {
+    const captured: unknown[] = [];
+    await runEdit({ ...editOpts(dir), inputFidelity: "high" }, dryGlobal, (env) => captured.push(env));
+    const env = captured[0] as { data: { request: { input_fidelity?: string } } };
+    expect(env.data.request.input_fidelity).toBe("high");
+  });
+
+  it("rejects invalid input_fidelity", async () => {
+    await expect(
+      runEdit({ ...editOpts(dir), inputFidelity: "medium" }, dryGlobal, () => {}),
+    ).rejects.toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("--model overrides the request model (dry-run)", async () => {
+    const captured: unknown[] = [];
+    await runEdit(editOpts(dir), { ...dryGlobal, model: "gpt-image-2.5-sunburst" }, (env) => captured.push(env));
+    const env = captured[0] as { data: { request: { model: string } } };
+    expect(env.data.request.model).toBe("gpt-image-2.5-sunburst");
   });
 });
